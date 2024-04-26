@@ -310,13 +310,11 @@ void FlaxRenderInterface::RenderCompiledGeometry(CompiledGeometry* compiledGeome
 void FlaxRenderInterface::EnableScissorRegion(bool enable)
 {
     UseScissor = enable;
-    LOG(Info, "EnableScissorRegion");
 }
 
 void FlaxRenderInterface::SetScissorRegion(Rml::Rectanglei region)
 {
     CurrentScissor = Rectangle((float)region.Position().x, (float)region.Position().y, (float)region.Size().x, (float)region.Size().y);
-    LOG(Info, "Set scissors");
 }
 
 void FlaxRenderInterface::EnableClipMask(bool enable)
@@ -392,7 +390,7 @@ Rml::LayerHandle FlaxRenderInterface::PushLayer()
 
 void FlaxRenderInterface::CompositeLayers(Rml::LayerHandle source, Rml::LayerHandle destination, Rml::BlendMode blend_mode, Rml::Span<const Rml::CompiledFilterHandle> filters)
 {
-    LOG(Info, "CompositeLayer");
+    LOG(Info, "CompositeLayer {0} {1} {2}", (int)(uintptr)source, (int)(uintptr)destination, blend_mode == Rml::BlendMode::Blend);
 }
 
 void FlaxRenderInterface::PopLayer()
