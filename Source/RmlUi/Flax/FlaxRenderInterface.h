@@ -2,13 +2,16 @@
 
 #include <ThirdParty/RmlUi/Core/RenderInterface.h>
 #include <Engine/Core/Math/Viewport.h>
+#include <Engine/Core/Math/Math.h>
 #include <Engine/Content/AssetReference.h>
+#include <Engine/Render2D/Render2D.h>
 
 struct RenderContext;
 struct CompiledGeometry;
 class Asset;
 class GPUContext;
 class GPUTexture;
+class GPUTextureView;
 class Texture;
 
 /// <summary>
@@ -59,6 +62,7 @@ public:
     Viewport GetViewport();
     void SetViewport(int width, int height);
     void InvalidateShaders(Asset* obj = nullptr);
+    bool InitShaders();
     void Begin(RenderContext* renderContext, GPUContext* context, Viewport viewport);
     void End();
     void CompileGeometry(CompiledGeometry* compiledGeometry, const Rml::Vertex* vertices, int num_vertices, const int* indices, int num_indices);
@@ -70,4 +74,57 @@ public:
     
 private:
     Rml::TextureHandle _generateTextureOverride;
+
+    struct FramebufferData {
+        int width, height;
+        GPUTextureView* framebuffer = (GPUTextureView*)nullptr;
+        /*
+        GPUTexture* color_tex_buffer;
+        GPUTexture* color_render_buffer;
+        */
+        GPUTextureView* depth_stencil_buffer = (GPUTextureView*)nullptr;
+        bool owns_depth_stencil_buffer;
+    };
+    static bool CreateFramebuffer(FramebufferData& outBuffer, int width, int height, int samples, GPUTextureView* shared_depth_stencil_buffer, GPUTextureView* outputBuffer = nullptr);
+    static void DestroyFameBuffer(FramebufferData& buffer);
+
+    class RenderLayerStack {
+    public:
+        RenderLayerStack();
+        ~RenderLayerStack();
+
+        // Push a new layer. All references to previously retrieved layers are invalidated.
+        Rml::LayerHandle PushLayer(GPUTextureView* outputBuffer = nullptr);
+
+        // Pop the top layer. All references to previously retrieved layers are invalidated.
+        void PopLayer();
+
+        const FramebufferData& GetLayer(Rml::LayerHandle layer) const;
+        const FramebufferData& GetTopLayer() const;
+        Rml::LayerHandle GetTopLayerHandle() const;
+
+        const FramebufferData& GetPostprocessPrimary() { return EnsureFramebufferPostprocess(0); }
+        const FramebufferData& GetPostprocessSecondary() { return EnsureFramebufferPostprocess(1); }
+        const FramebufferData& GetPostprocessTertiary() { return EnsureFramebufferPostprocess(2); }
+        const FramebufferData& GetBlendMask() { return EnsureFramebufferPostprocess(3); }
+
+        void SwapPostprocessPrimarySecondary();
+
+        void BeginFrame(int new_width, int new_height, GPUTextureView* outputView);
+        void EndFrame();
+
+    private:
+        void DestroyFramebuffers();
+        const FramebufferData& EnsureFramebufferPostprocess(int index);
+
+        int width = 0, height = 0;
+
+        // The number of active layers is manually tracked since we re-use the framebuffers stored in the fb_layers stack.
+        int layers_size = 0;
+
+        Rml::Vector<FramebufferData> fb_layers;
+        Rml::Vector<FramebufferData> fb_postprocess;
+    };
+
+    RenderLayerStack render_layers;
 };
