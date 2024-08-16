@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "RmlUiFont.h"
+#include "RmlUiElement.h"
 
 #include <Engine/Content/AssetReference.h>
 #include <Engine/Level/Actor.h>
@@ -24,7 +25,8 @@ class RMLUI_API RmlUiDocument : public Actor
     DECLARE_SCENE_OBJECT(RmlUiDocument);
 
 private:
-    Rml::ElementDocument* elementDocument = nullptr;
+    RmlUiElement* element = nullptr;
+    Array<Rml::ElementPtr> ownedElements;
 
 public:
     /// <summary>
@@ -70,6 +72,11 @@ public:
     void UnloadDocument();
 
     /// <summary>
+    /// Returns true if the document was loaded previously.
+    /// </summary>
+    API_FUNCTION() bool IsLoaded();
+
+    /// <summary>
     /// Shows the document.
     /// </summary>
     void Show() const;
@@ -83,6 +90,16 @@ public:
     /// Closes the document.
     /// </summary>
     void Close() const;
+
+    /// <summary>
+    /// Create a new named element.
+    /// </summary>
+    RmlUiElement* CreateElement(const String& name);
+
+    /// <summary>
+    /// Create a new text element with given text.
+    /// </summary>
+    RmlUiElement* CreateTextNode(const String& text);
 
     /// <summary>
     /// Returns true if this document and the canvas is focused.

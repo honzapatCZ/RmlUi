@@ -176,7 +176,11 @@ void RmlUiDocument::UnloadDocument()
         el.release();
     ownedElements.Clear();
 
-    context->UnloadDocument(GetDocument());
+    if (GetDocument() != nullptr)
+        context->UnloadDocument(GetDocument());    
+
+    if (element == nullptr)
+        return;
     Delete(element);
     element = nullptr;
 }
@@ -224,6 +228,7 @@ void RmlUiDocument::OnDisable()
 }
 #if USE_EDITOR
 void RmlUiDocument::OnReload(const String& file) {
+    UnloadDocument();
     LoadDocument();
     Show();
 }
