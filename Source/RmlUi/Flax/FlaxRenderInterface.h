@@ -74,7 +74,6 @@ public:
     
 private:
     Rml::TextureHandle _generateTextureOverride;
-
     struct FramebufferData {
         int width, height;
         GPUTextureView* framebuffer = (GPUTextureView*)nullptr;
@@ -85,6 +84,10 @@ private:
         GPUTextureView* depth_stencil_buffer = (GPUTextureView*)nullptr;
         bool owns_depth_stencil_buffer;
     };
+
+    void RenderBlur(float sigma, const FramebufferData& source_destination, const FramebufferData& temp, const Rml::Rectanglei window_flipped);
+    void RenderFilters(Rml::Span<const Rml::CompiledFilterHandle> filter_handles);
+
     static bool CreateFramebuffer(FramebufferData& outBuffer, int width, int height, int samples, GPUTextureView* shared_depth_stencil_buffer, GPUTextureView* outputBuffer = nullptr);
     static void DestroyFameBuffer(FramebufferData& buffer);
 

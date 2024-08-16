@@ -49,10 +49,8 @@ struct CompiledGeometry
 {
 public:
     CompiledGeometry()
-        : reserved(true)
-        , vertexBuffer(512, sizeof(BasicVertex), TEXT("RmlUI.VB"))
-        , indexBuffer(64, sizeof(uint32), TEXT("RmlUI.IB"))
-        //, isFont(false)
+        : reserved(true), vertexBuffer(512, sizeof(BasicVertex), TEXT("RmlUI.VB")), indexBuffer(64, sizeof(uint32), TEXT("RmlUI.IB"))
+    //, isFont(false)
     {
     }
 
@@ -74,23 +72,31 @@ public:
             vertexBuffer.Dispose();
             indexBuffer.Dispose();
         }
-        //isFont = false;
+        // isFont = false;
     }
 
     bool reserved;
     StaticVertexBuffer vertexBuffer;
     StaticIndexBuffer indexBuffer;
-    //bool isFont;
+    // bool isFont;
 };
 
-enum class FilterType { Invalid = 0, Passthrough, Blur, DropShadow, ColorMatrix, MaskImage };
+enum class FilterType
+{
+    Invalid = 0,
+    Passthrough,
+    Blur,
+    DropShadow,
+    ColorMatrix,
+    MaskImage
+};
 struct CompiledFilter
 {
 public:
     CompiledFilter()
         : reserved(true),
-        type(FilterType::Invalid)
-        //, isFont(false)
+          type(FilterType::Invalid)
+    //, isFont(false)
     {
     }
 
@@ -103,7 +109,7 @@ public:
     {
         type = FilterType::Invalid;
         reserved = false;
-        //isFont = false;
+        // isFont = false;
     }
 
     bool reserved;
@@ -122,8 +128,7 @@ public:
     Matrix color_matrix;
 };
 
-PACK_STRUCT(struct CustomData
-{
+PACK_STRUCT(struct CustomData {
     Matrix ViewProjection;
     Matrix Model;
     Float2 Offset;
@@ -144,8 +149,8 @@ PACK_STRUCT(struct BlurData {
 
 namespace
 {
-    RenderContext* CurrentRenderContext = nullptr;
-    GPUContext* CurrentGPUContext = nullptr;
+    RenderContext *CurrentRenderContext = nullptr;
+    GPUContext *CurrentGPUContext = nullptr;
     Viewport CurrentViewport;
 
     Rectangle CurrentScissor;
@@ -156,25 +161,25 @@ namespace
     AssetReference<Shader> BasicShader;
     AssetReference<Shader> GUIShader;
 
-    GPUPipelineState* FontPipeline = nullptr;
-    GPUPipelineState* ImagePipeline = nullptr;
-    GPUPipelineState* ColorPipeline = nullptr;
+    GPUPipelineState *FontPipeline = nullptr;
+    GPUPipelineState *ImagePipeline = nullptr;
+    GPUPipelineState *ColorPipeline = nullptr;
 
-    GPUPipelineState* DownscalePipeline = nullptr;
-    GPUPipelineState* DownscalePipelineBlend = nullptr;
-    GPUPipelineState* BlurHPipeline = nullptr;
-    GPUPipelineState* BlurVPipeline = nullptr;
+    GPUPipelineState *DownscalePipeline = nullptr;
+    GPUPipelineState *DownscalePipelineBlend = nullptr;
+    GPUPipelineState *BlurHPipeline = nullptr;
+    GPUPipelineState *BlurVPipeline = nullptr;
 
-    Array<CompiledGeometry*> GeometryCache(2);
-    Array<CompiledFilter*> FilterCache(2);
+    Array<CompiledGeometry *> GeometryCache(2);
+    Array<CompiledFilter *> FilterCache(2);
 
-    Dictionary<GPUTexture*, AssetReference<Texture>> LoadedTextureAssets(32);
-    Array<GPUTexture*> LoadedTextures(32);
-    Array<GPUTexture*> AllocatedTextures(32);
-    HashSet<GPUTexture*> FontTextures(32);
+    Dictionary<GPUTexture *, AssetReference<Texture>> LoadedTextureAssets(32);
+    Array<GPUTexture *> LoadedTextures(32);
+    Array<GPUTexture *> AllocatedTextures(32);
+    HashSet<GPUTexture *> FontTextures(32);
 }
 
-CompiledGeometry* ReserveGeometry(Rml::CompiledGeometryHandle& geometryHandle)
+CompiledGeometry *ReserveGeometry(Rml::CompiledGeometryHandle &geometryHandle)
 {
     // Cache geometry structures in order to reduce allocations and recreating buffers
     for (int i = 1; i < GeometryCache.Count(); i++)
@@ -187,13 +192,13 @@ CompiledGeometry* ReserveGeometry(Rml::CompiledGeometryHandle& geometryHandle)
         return GeometryCache[i];
     }
 
-    CompiledGeometry* geometry = New<CompiledGeometry>();
+    CompiledGeometry *geometry = New<CompiledGeometry>();
     geometryHandle = Rml::CompiledGeometryHandle(GeometryCache.Count());
     GeometryCache.Add(geometry);
     return geometry;
 }
 
-CompiledFilter* ReserveFilter(Rml::CompiledFilterHandle& filterHandle)
+CompiledFilter *ReserveFilter(Rml::CompiledFilterHandle &filterHandle)
 {
     // Cache geometry structures in order to reduce allocations and recreating buffers
     for (int i = 1; i < FilterCache.Count(); i++)
@@ -206,7 +211,7 @@ CompiledFilter* ReserveFilter(Rml::CompiledFilterHandle& filterHandle)
         return FilterCache[i];
     }
 
-    CompiledFilter* geometry = New<CompiledFilter>();
+    CompiledFilter *geometry = New<CompiledFilter>();
     filterHandle = Rml::CompiledFilterHandle(FilterCache.Count());
     FilterCache.Add(geometry);
     return geometry;
@@ -248,13 +253,14 @@ FlaxRenderInterface::~FlaxRenderInterface()
     InvalidateShaders();
 }
 
-void FlaxRenderInterface::InvalidateShaders(Asset* obj)
+void FlaxRenderInterface::InvalidateShaders(Asset *obj)
 {
     SAFE_DELETE_GPU_RESOURCE(FontPipeline);
     SAFE_DELETE_GPU_RESOURCE(ImagePipeline);
     SAFE_DELETE_GPU_RESOURCE(ColorPipeline);
 }
-bool FlaxRenderInterface::InitShaders() {
+bool FlaxRenderInterface::InitShaders()
+{
     if (!BasicShader->IsLoaded() && BasicShader->WaitForLoaded())
         return false;
 
@@ -288,7 +294,7 @@ bool FlaxRenderInterface::InitShaders() {
             return false;
         }
 
-        desc.BlendMode = BlendingMode::Add;
+        desc.BlendMode = BlendingMode::AlphaBlend;
         desc.PS = BasicShader->GetShader()->GetPS("PS_Color");
         ColorPipeline = GPUDevice::Instance->CreatePipelineState();
         if (ColorPipeline->Init(desc))
@@ -324,7 +330,7 @@ bool FlaxRenderInterface::InitShaders() {
             LOG(Error, "RmlUi: Failed to create color pipeline state");
             return false;
         }
-        
+
         desc.PS = GUIShader->GetShader()->GetPS("PS_Blur");
         BlurHPipeline = GPUDevice::Instance->CreatePipelineState();
         if (BlurHPipeline->Init(desc))
@@ -347,14 +353,13 @@ bool FlaxRenderInterface::InitShaders() {
 Rml::CompiledGeometryHandle FlaxRenderInterface::CompileGeometry(Rml::Span<const Rml::Vertex> vertices, Rml::Span<const int> indices)
 {
     Rml::CompiledGeometryHandle geometryHandle;
-    CompiledGeometry* compiledGeometry = ReserveGeometry(geometryHandle);
+    CompiledGeometry *compiledGeometry = ReserveGeometry(geometryHandle);
     CompileGeometry(compiledGeometry, vertices.begin(), (int)vertices.size(), indices.begin(), (int)indices.size());
     return (Rml::CompiledGeometryHandle)geometryHandle;
 }
 
-void FlaxRenderInterface::CompileGeometry(CompiledGeometry* compiledGeometry, const Rml::Vertex* vertices, int num_vertices, const int* indices, int num_indices)
+void FlaxRenderInterface::CompileGeometry(CompiledGeometry *compiledGeometry, const Rml::Vertex *vertices, int num_vertices, const int *indices, int num_indices)
 {
-    LOG(Info, "CompileGeometry");
     PROFILE_GPU_CPU("RmlUi.CompileGeometry");
 
     const Rectangle defaultBounds(CurrentViewport.Location, CurrentViewport.Size);
@@ -380,38 +385,36 @@ void FlaxRenderInterface::CompileGeometry(CompiledGeometry* compiledGeometry, co
 
 void FlaxRenderInterface::RenderGeometry(Rml::CompiledGeometryHandle geometry, Rml::Vector2f translation, Rml::TextureHandle texture)
 {
-    CompiledGeometry* compiledGeometry = GeometryCache[(int)geometry];
+    CompiledGeometry *compiledGeometry = GeometryCache[(int)geometry];
     if (compiledGeometry == nullptr)
         return;
 
     RenderCompiledGeometry(compiledGeometry, translation, texture);
 }
 
-void FlaxRenderInterface::RenderCompiledGeometry(CompiledGeometry* compiledGeometry, const Rml::Vector2f& translation, Rml::TextureHandle texture_handle)
+void FlaxRenderInterface::RenderCompiledGeometry(CompiledGeometry *compiledGeometry, const Rml::Vector2f &translation, Rml::TextureHandle texture_handle)
 {
     PROFILE_GPU_CPU("RmlUi.RenderCompiledGeometry");
-
-    LOG(Info, "Render");
 
     compiledGeometry->vertexBuffer.Flush(CurrentGPUContext);
     compiledGeometry->indexBuffer.Flush(CurrentGPUContext);
 
     if (!InitShaders())
         return;
-    
+
     auto texture = LoadedTextures.At((int32)texture_handle);
 
-    GPUPipelineState* pipeline;
+    GPUPipelineState *pipeline;
     if (texture == nullptr)
         pipeline = ColorPipeline;
     else if (FontTextures.Contains(texture))
         pipeline = FontPipeline;
     else
         pipeline = ImagePipeline;
-    
-    GPUConstantBuffer* constantBuffer = BasicShader->GetShader()->GetCB(0);
-    GPUBuffer* vb = compiledGeometry->vertexBuffer.GetBuffer();
-    GPUBuffer* ib = compiledGeometry->indexBuffer.GetBuffer();
+
+    GPUConstantBuffer *constantBuffer = BasicShader->GetShader()->GetCB(0);
+    GPUBuffer *vb = compiledGeometry->vertexBuffer.GetBuffer();
+    GPUBuffer *ib = compiledGeometry->indexBuffer.GetBuffer();
 
     CurrentGPUContext->ResetSR();
     CurrentGPUContext->SetRenderTarget(render_layers.GetTopLayer().framebuffer);
@@ -435,7 +438,7 @@ void FlaxRenderInterface::RenderCompiledGeometry(CompiledGeometry* compiledGeome
     CurrentGPUContext->BindCB(0, constantBuffer);
     if (texture != nullptr)
         CurrentGPUContext->BindSR(0, texture);
-    CurrentGPUContext->BindVB(Span<GPUBuffer*>(&vb, 1));
+    CurrentGPUContext->BindVB(Span<GPUBuffer *>(&vb, 1));
     CurrentGPUContext->BindIB(ib);
     CurrentGPUContext->SetState(pipeline);
 
@@ -449,34 +452,36 @@ void FlaxRenderInterface::HookGenerateTexture(Rml::TextureHandle textureHandle)
 
 void FlaxRenderInterface::EnableScissorRegion(bool enable)
 {
+    PROFILE_GPU("RmlUi.EnableScissorRegion");
     UseScissor = enable;
 }
 
 void FlaxRenderInterface::SetScissorRegion(Rml::Rectanglei region)
 {
+    PROFILE_GPU("RmlUi.SetScissorRegion");
     CurrentScissor = Rectangle((float)region.Position().x, (float)region.Position().y, (float)region.Size().x, (float)region.Size().y);
-    //LOG(Info, "Set Scissor: {0} {1} {2} {3}", CurrentScissor.GetX(), CurrentScissor.GetY(), CurrentScissor.GetWidth(), CurrentScissor.GetHeight());
+    // LOG(Info, "Set Scissor: {0} {1} {2} {3}", CurrentScissor.GetX(), CurrentScissor.GetY(), CurrentScissor.GetWidth(), CurrentScissor.GetHeight());
 }
 
 void FlaxRenderInterface::EnableClipMask(bool enable)
 {
-    LOG(Info, "EnableClip");
+    PROFILE_GPU("RmlUi.EnableClipMask");
 }
 
 void FlaxRenderInterface::RenderToClipMask(Rml::ClipMaskOperation mask_operation, Rml::CompiledGeometryHandle geometry, Rml::Vector2f translation)
 {
-    LOG(Info, "RenderClip");
+    PROFILE_GPU("RmlUi.RenderToClipMask");
 }
 
-Rml::TextureHandle FlaxRenderInterface::LoadTexture(Rml::Vector2i& texture_dimensions, const Rml::String& source)
+Rml::TextureHandle FlaxRenderInterface::LoadTexture(Rml::Vector2i &texture_dimensions, const Rml::String &source)
 {
-    LOG(Info, "LoadTexture");
+    PROFILE_GPU("RmlUi.LoadTexture");
     String contentPath = String(StringUtils::GetPathWithoutExtension(String(source.c_str()))) + ASSET_FILES_EXTENSION_WITH_DOT;
     AssetReference<Texture> textureAsset = Content::Load<Texture>(contentPath);
     if (textureAsset == nullptr)
         return false;
 
-    GPUTexture* texture = textureAsset.Get()->GetTexture();
+    GPUTexture *texture = textureAsset.Get()->GetTexture();
     LoadedTextureAssets.Add(texture, textureAsset);
 
     Float2 textureSize = textureAsset->Size();
@@ -500,9 +505,9 @@ Rml::TextureHandle FlaxRenderInterface::GenerateTexture(Rml::Span<const Rml::byt
     }
 
     GPUTextureDescription desc = GPUTextureDescription::New2D(source_dimensions.x, source_dimensions.y, PixelFormat::B8G8R8A8_UNorm);
-    GPUTexture*  texture = GPUDevice::Instance->CreateTexture();
+    GPUTexture *texture = GPUDevice::Instance->CreateTexture();
     if (texture->Init(desc))
-        return (Rml::TextureHandle)nullptr;
+        return (Rml::TextureHandle) nullptr;
 
     texture_handle = RegisterTexture(texture);
     AllocatedTextures.Add(texture);
@@ -517,7 +522,7 @@ Rml::TextureHandle FlaxRenderInterface::GenerateTexture(Rml::Span<const Rml::byt
 
 void FlaxRenderInterface::ReleaseTexture(Rml::TextureHandle texture_handle)
 {
-    GPUTexture* texture = LoadedTextures.At((int)texture_handle);
+    GPUTexture *texture = LoadedTextures.At((int)texture_handle);
     AssetReference<Texture> textureAssetRef;
     if (LoadedTextureAssets.TryGet(texture, textureAssetRef))
     {
@@ -526,79 +531,150 @@ void FlaxRenderInterface::ReleaseTexture(Rml::TextureHandle texture_handle)
     }
 }
 
-void FlaxRenderInterface::SetTransform(const Rml::Matrix4f* transform_)
+void FlaxRenderInterface::SetTransform(const Rml::Matrix4f *transform_)
 {
-    LOG(Info, "SetTransform");
+    PROFILE_GPU("RmlUi.SetTransform");
     // We assume the library is not built with row-major matrices enabled
-    CurrentTransform = transform_ != nullptr ? *(const Matrix*)transform_->data() : Matrix::Identity;
+    CurrentTransform = transform_ != nullptr ? *(const Matrix *)transform_->data() : Matrix::Identity;
 }
 
 Rml::LayerHandle FlaxRenderInterface::PushLayer()
 {
-    LOG(Info, "PushLayer");
+    PROFILE_GPU("RmlUi.PushLayer");
 
     const Rml::LayerHandle layer_handle = render_layers.PushLayer();
 
     return layer_handle;
 }
 
-void CalculateKernelSize(float strength, int32& kernelSize, int32& downSample)
+void FlaxRenderInterface::RenderFilters(Rml::Span<const Rml::CompiledFilterHandle> filter_handles)
 {
-    kernelSize = Math::RoundToInt(strength * 3.0f);
-
-    if (kernelSize > 9)
+    PROFILE_GPU("RmlUi.RenderFilters");
+    /*for (const Rml::CompiledFilterHandle filter_handle : filter_handles)
     {
-        downSample = kernelSize >= 64 ? 4 : 2;
-        kernelSize /= downSample;
-    }
+        const CompiledFilter& filter = *reinterpret_cast<const CompiledFilter*>(filter_handle);
+        const FilterType type = filter.type;
 
-    if (kernelSize % 2 == 0)
-    {
-        kernelSize++;
-    }
+        switch (type)
+        {
+        case FilterType::Passthrough:
+        {
+            UseProgram(ProgramId::Passthrough);
+            glBlendFunc(GL_CONSTANT_ALPHA, GL_ZERO);
+            glBlendColor(0.0f, 0.0f, 0.0f, filter.blend_factor);
 
-    kernelSize = Math::Clamp(kernelSize, 3, RENDER2D_BLUR_MAX_SAMPLES / 2);
-}
-static float GetWeight(float dist, float strength)
-{
-    float strength2 = strength * strength;
-    return (1.0f / Math::Sqrt(2 * PI * strength2)) * Math::Exp(-(dist * dist) / (2 * strength2));
-}
+            const Gfx::FramebufferData& source = render_layers.GetPostprocessPrimary();
+            const Gfx::FramebufferData& destination = render_layers.GetPostprocessSecondary();
+            Gfx::BindTexture(source);
+            glBindFramebuffer(GL_FRAMEBUFFER, destination.framebuffer);
 
-static Float2 GetWeightAndOffset(float dist, float sigma)
-{
-    float offset1 = dist;
-    float weight1 = GetWeight(offset1, sigma);
+            DrawFullscreenQuad();
 
-    float offset2 = dist + 1;
-    float weight2 = GetWeight(offset2, sigma);
+            render_layers.SwapPostprocessPrimarySecondary();
+            glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
+        }
+        break;
+        case FilterType::Blur:
+        {
+            glDisable(GL_BLEND);
 
-    float totalWeight = weight1 + weight2;
+            const Gfx::FramebufferData& source_destination = render_layers.GetPostprocessPrimary();
+            const Gfx::FramebufferData& temp = render_layers.GetPostprocessSecondary();
 
-    float offset = 0;
-    if (totalWeight > 0)
-    {
-        offset = (weight1 * offset1 + weight2 * offset2) / totalWeight;
-    }
+            const Rml::Rectanglei window_flipped = VerticallyFlipped(scissor_state, viewport_height);
+            RenderBlur(filter.sigma, source_destination, temp, window_flipped);
 
-    return Float2(totalWeight, offset);
-}
-static uint32 ComputeBlurWeights(int32 kernelSize, float sigma, Float4* outWeightsAndOffsets)
-{
-    const uint32 numSamples = Math::DivideAndRoundUp((uint32)kernelSize, 2u);
-    outWeightsAndOffsets[0] = Float4(Float2(GetWeight(0, sigma), 0), GetWeightAndOffset(1, sigma));
-    uint32 sampleIndex = 1;
-    for (int32 x = 3; x < kernelSize; x += 4)
-    {
-        outWeightsAndOffsets[sampleIndex] = Float4(GetWeightAndOffset((float)x, sigma), GetWeightAndOffset((float)(x + 2), sigma));
-        sampleIndex++;
-    }
-    return numSamples;
+            glEnable(GL_BLEND);
+        }
+        break;
+        case FilterType::DropShadow:
+        {
+            UseProgram(ProgramId::DropShadow);
+            glDisable(GL_BLEND);
+
+            Rml::Colourf color = ConvertToColorf(filter.color);
+            glUniform4fv(GetUniformLocation(UniformId::Color), 1, &color[0]);
+
+            const Gfx::FramebufferData& primary = render_layers.GetPostprocessPrimary();
+            const Gfx::FramebufferData& secondary = render_layers.GetPostprocessSecondary();
+            Gfx::BindTexture(primary);
+            glBindFramebuffer(GL_FRAMEBUFFER, secondary.framebuffer);
+
+            const Rml::Rectanglei window_flipped = VerticallyFlipped(scissor_state, viewport_height);
+            SetTexCoordLimits(GetUniformLocation(UniformId::TexCoordMin), GetUniformLocation(UniformId::TexCoordMax), window_flipped,
+                {primary.width, primary.height});
+
+            const Rml::Vector2f uv_offset = filter.offset / Rml::Vector2f(-(float)viewport_width, (float)viewport_height);
+            DrawFullscreenQuad(uv_offset);
+
+            if (filter.sigma >= 0.5f)
+            {
+                const Gfx::FramebufferData& tertiary = render_layers.GetPostprocessTertiary();
+                RenderBlur(filter.sigma, secondary, tertiary, window_flipped);
+            }
+
+            UseProgram(ProgramId::Passthrough);
+            BindTexture(primary);
+            glEnable(GL_BLEND);
+            DrawFullscreenQuad();
+
+            render_layers.SwapPostprocessPrimarySecondary();
+        }
+        break;
+        case FilterType::ColorMatrix:
+        {
+            UseProgram(ProgramId::ColorMatrix);
+            glDisable(GL_BLEND);
+
+            const GLint uniform_location = program_data->uniforms.Get(ProgramId::ColorMatrix, UniformId::ColorMatrix);
+            constexpr bool transpose = std::is_same<decltype(filter.color_matrix), Rml::RowMajorMatrix4f>::value;
+            glUniformMatrix4fv(uniform_location, 1, transpose, filter.color_matrix.data());
+
+            const Gfx::FramebufferData& source = render_layers.GetPostprocessPrimary();
+            const Gfx::FramebufferData& destination = render_layers.GetPostprocessSecondary();
+            Gfx::BindTexture(source);
+            glBindFramebuffer(GL_FRAMEBUFFER, destination.framebuffer);
+
+            DrawFullscreenQuad();
+
+            render_layers.SwapPostprocessPrimarySecondary();
+            glEnable(GL_BLEND);
+        }
+        break;
+        case FilterType::MaskImage:
+        {
+            UseProgram(ProgramId::BlendMask);
+            glDisable(GL_BLEND);
+
+            const Gfx::FramebufferData& source = render_layers.GetPostprocessPrimary();
+            const Gfx::FramebufferData& blend_mask = render_layers.GetBlendMask();
+            const Gfx::FramebufferData& destination = render_layers.GetPostprocessSecondary();
+
+            Gfx::BindTexture(source);
+            glActiveTexture(GL_TEXTURE1);
+            Gfx::BindTexture(blend_mask);
+            glActiveTexture(GL_TEXTURE0);
+
+            glBindFramebuffer(GL_FRAMEBUFFER, destination.framebuffer);
+
+            DrawFullscreenQuad();
+
+            render_layers.SwapPostprocessPrimarySecondary();
+            glEnable(GL_BLEND);
+        }
+        break;
+        case FilterType::Invalid:
+        {
+            Rml::Log::Message(Rml::Log::LT_WARNING, "Unhandled render filter %d.", (int)type);
+        }
+        break;
+        }
+    }*/
 }
 
 void FlaxRenderInterface::CompositeLayers(Rml::LayerHandle source, Rml::LayerHandle destination, Rml::BlendMode blend_mode, Rml::Span<const Rml::CompiledFilterHandle> filters)
 {
-    LOG(Info, "CompositeLayer S{0} D{1} B:{2} Ef:{3}", (int)(uintptr)source, (int)(uintptr)destination, blend_mode == Rml::BlendMode::Blend, filters.size());
+    PROFILE_GPU("RmlUi.CompositeLayers");
 
     if (!InitShaders())
         return;
@@ -607,149 +683,55 @@ void FlaxRenderInterface::CompositeLayers(Rml::LayerHandle source, Rml::LayerHan
     auto destinationLayer = render_layers.GetLayer(destination);
     auto postProcess = render_layers.GetPostprocessPrimary();
 
-    Render2D::Begin(CurrentGPUContext, postProcess.framebuffer, nullptr, CurrentViewport);
+    /*
+        BlitLayerToPostprocessPrimary(source_handle);
 
-    //draw source into postProcess
-    Render2D::DrawTexture(sourceLayer.framebuffer, Rectangle(0,0,sourceLayer.width, sourceLayer.height));
+        // Render the filters, the PostprocessPrimary framebuffer is used for both input and output.
+        RenderFilters(filters);
 
+        // Render to the destination layer.
+        glBindFramebuffer(GL_FRAMEBUFFER, render_layers.GetLayer(destination_handle).framebuffer);
+        Gfx::BindTexture(render_layers.GetPostprocessPrimary());
 
-    for (const Rml::CompiledFilterHandle filter_handle : filters)
-    {
-        CompiledFilter* filter = FilterCache[(int)filter_handle];
-        const FilterType type = filter->type;
+        UseProgram(ProgramId::Passthrough);
 
-        switch (type)
-        {
-        case FilterType::Passthrough:
-            Render2D::DrawTexture(sourceLayer.framebuffer, CurrentScissor, Color(Color::White, filter->blend_factor));
-            break;
-        case FilterType::Blur:
-        {
-            PROFILE_GPU("Blur");
+        if (blend_mode == BlendMode::Replace)
+            glDisable(GL_BLEND);
 
-            const Float4 bounds(CurrentScissor);
-            float blurStrength = Math::Max(filter->sigma, 1.0f);
-            const auto& limits = GPUDevice::Instance->Limits;
-            int32 renderTargetWidth = Math::Min(Math::RoundToInt(CurrentScissor.GetWidth()), limits.MaximumTexture2DSize);
-            int32 renderTargetHeight = Math::Min(Math::RoundToInt(CurrentScissor.GetHeight()), limits.MaximumTexture2DSize);
+        DrawFullscreenQuad();
 
-            int32 kernelSize = 0, downSample = 0;
-            CalculateKernelSize(blurStrength, kernelSize, downSample);
-            if (downSample > 0)
-            {
-                renderTargetWidth = Math::DivideAndRoundUp(renderTargetWidth, downSample);
-                renderTargetHeight = Math::DivideAndRoundUp(renderTargetHeight, downSample);
-                blurStrength /= downSample;
-            }
+        if (blend_mode == BlendMode::Replace)
+            glEnable(GL_BLEND);
 
-            // Skip if no chance to render anything
-            renderTargetWidth = Math::AlignDown(renderTargetWidth, 4);
-            renderTargetHeight = Math::AlignDown(renderTargetHeight, 4);
-            if (renderTargetWidth <= 0 || renderTargetHeight <= 0)
-                return;
-
-            // Get temporary textures
-            auto desc = GPUTextureDescription::New2D(renderTargetWidth, renderTargetHeight, PS_Blur_Format);
-            auto blurA = RenderTargetPool::Get(desc);
-            auto blurB = RenderTargetPool::Get(desc);
-            RENDER_TARGET_POOL_SET_NAME(blurA, "Render2D.BlurA");
-            RENDER_TARGET_POOL_SET_NAME(blurB, "Render2D.BlurB");
-
-            // Prepare blur data
-            BlurData data;
-            data.Bounds.X = bounds.X;
-            data.Bounds.Y = bounds.Y;
-            data.Bounds.Z = bounds.Z - bounds.X;
-            data.Bounds.W = bounds.W - bounds.Y;
-            data.InvBufferSize.X = 1.0f / (float)renderTargetWidth;
-            data.InvBufferSize.Y = 1.0f / (float)renderTargetHeight;
-            data.SampleCount = ComputeBlurWeights(kernelSize, blurStrength, data.WeightAndOffsets);
-            const auto cb = GUIShader->GetShader()->GetCB(1);
-            CurrentGPUContext->UpdateCB(cb, &data);
-            CurrentGPUContext->BindCB(1, cb);
-
-            // Downscale (or not) and extract the background image for the blurring
-            CurrentGPUContext->ResetRenderTarget();
-            CurrentGPUContext->SetRenderTarget(blurA->View());
-            CurrentGPUContext->SetViewportAndScissors((float)renderTargetWidth, (float)renderTargetHeight);
-            CurrentGPUContext->BindSR(0, sourceLayer.framebuffer);
-            CurrentGPUContext->SetState(DownscalePipeline);
-            CurrentGPUContext->DrawFullscreenTriangle();
-
-            // Render the blur (1st pass)
-            CurrentGPUContext->ResetRenderTarget();
-            CurrentGPUContext->SetRenderTarget(blurB->View());
-            CurrentGPUContext->BindSR(0, blurA->View());
-            CurrentGPUContext->SetState(BlurHPipeline);
-            CurrentGPUContext->DrawFullscreenTriangle();
-
-            // Render the blur (2nd pass)
-            CurrentGPUContext->ResetRenderTarget();
-            CurrentGPUContext->SetRenderTarget(blurA->View());
-            CurrentGPUContext->BindSR(0, blurB->View());
-            CurrentGPUContext->SetState(BlurVPipeline);
-            CurrentGPUContext->DrawFullscreenTriangle();
-
-            // Restore output
-            CurrentGPUContext->ResetRenderTarget();
-            CurrentGPUContext->SetRenderTarget( postProcess.framebuffer);
-            CurrentGPUContext->SetViewport(CurrentViewport);
-            CurrentGPUContext->SetScissor(CurrentScissor);
-            CurrentGPUContext->UnBindCB(1);
-
-            // Link for drawing final blur as a texture
-            CurrentGPUContext->BindSR(0, blurA->View());
-            CurrentGPUContext->SetState(ColorPipeline);
-
-            // Cleanup
-            RenderTargetPool::Release(blurA);
-            RenderTargetPool::Release(blurB);
-
-            break;
-        }
-        case FilterType::DropShadow:
-            break;
-        case FilterType::ColorMatrix:
-            break;
-        case FilterType::MaskImage:
-            break;
-        default:
-            LOG(Error, "Unhandled RML filter");
-            break;
-        }
-    }
-
-    Render2D::End();
-    Render2D::Begin(CurrentGPUContext, destinationLayer.framebuffer, nullptr, CurrentViewport);
-
-
-    Render2D::End();
+        if (destination_handle != render_layers.GetTopLayerHandle())
+            glBindFramebuffer(GL_FRAMEBUFFER, render_layers.GetTopLayer().framebuffer);
+    */
 }
 
 void FlaxRenderInterface::PopLayer()
 {
-    LOG(Info, "PopLayer");
+    PROFILE_GPU("RmlUi.PopLayer");
     render_layers.PopLayer();
 }
 
 Rml::TextureHandle FlaxRenderInterface::SaveLayerAsTexture(Rml::Vector2i dimensions)
 {
-    LOG(Info, "SaveLayerTexture");
+    PROFILE_GPU("RmlUi.PopLayer");
     return Rml::TextureHandle();
 }
 
 Rml::CompiledFilterHandle FlaxRenderInterface::SaveLayerAsMaskImage()
 {
-    LOG(Info, "SaveLayerMask");
+    PROFILE_GPU("RmlUi.PopLayer");
     return Rml::CompiledFilterHandle();
 }
 
-Rml::CompiledFilterHandle FlaxRenderInterface::CompileFilter(const Rml::String& name, const Rml::Dictionary& parameters)
+Rml::CompiledFilterHandle FlaxRenderInterface::CompileFilter(const Rml::String &name, const Rml::Dictionary &parameters)
 {
-    LOG(Info, "CompileFilter");
+    PROFILE_GPU("RmlUi.CompileFilter");
 
     Rml::CompiledFilterHandle filterHandle;
-    CompiledFilter* filter = ReserveFilter(filterHandle);
+    CompiledFilter *filter = ReserveFilter(filterHandle);
 
     if (name == "opacity")
     {
@@ -773,14 +755,14 @@ Rml::CompiledFilterHandle FlaxRenderInterface::CompileFilter(const Rml::String& 
     {
         filter->type = FilterType::ColorMatrix;
         const float value = Rml::Get(parameters, "value", 1.0f);
-        filter->color_matrix = *(const Matrix*)Rml::Matrix4f::Diag(value, value, value, 1.f).data();
+        filter->color_matrix = *(const Matrix *)Rml::Matrix4f::Diag(value, value, value, 1.f).data();
     }
     else if (name == "contrast")
     {
         filter->type = FilterType::ColorMatrix;
         const float value = Rml::Get(parameters, "value", 1.0f);
         const float grayness = 0.5f - 0.5f * value;
-        filter->color_matrix = *(const Matrix*)Rml::Matrix4f::Diag(value, value, value, 1.f).data();
+        filter->color_matrix = *(const Matrix *)Rml::Matrix4f::Diag(value, value, value, 1.f).data();
         filter->color_matrix.SetColumn4(Float4(grayness, grayness, grayness, 1.f));
     }
     else if (name == "invert")
@@ -788,7 +770,7 @@ Rml::CompiledFilterHandle FlaxRenderInterface::CompileFilter(const Rml::String& 
         filter->type = FilterType::ColorMatrix;
         const float value = Rml::Math::Clamp(Rml::Get(parameters, "value", 1.0f), 0.f, 1.f);
         const float inverted = 1.f - 2.f * value;
-        filter->color_matrix = *(const Matrix*)Rml::Matrix4f::Diag(inverted, inverted, inverted, 1.f).data();
+        filter->color_matrix = *(const Matrix *)Rml::Matrix4f::Diag(inverted, inverted, inverted, 1.f).data();
         filter->color_matrix.SetColumn4(Float4(value, value, value, 1.f));
     }
     else if (name == "grayscale")
@@ -862,24 +844,22 @@ Rml::CompiledFilterHandle FlaxRenderInterface::CompileFilter(const Rml::String& 
 
 void FlaxRenderInterface::ReleaseFilter(Rml::CompiledFilterHandle filter)
 {
-    LOG(Info, "ReleaseFilter");
     FilterCache[(int)filter]->Dispose();
 }
 
-Rml::CompiledShaderHandle FlaxRenderInterface::CompileShader(const Rml::String& name, const Rml::Dictionary& parameters)
+Rml::CompiledShaderHandle FlaxRenderInterface::CompileShader(const Rml::String &name, const Rml::Dictionary &parameters)
 {
-    LOG(Info, "CompileShader");
+    PROFILE_GPU("RmlUi.CompileShader");
     return Rml::CompiledShaderHandle();
 }
 
 void FlaxRenderInterface::RenderShader(Rml::CompiledShaderHandle shader_handle, Rml::CompiledGeometryHandle geometry_handle, Rml::Vector2f translation, Rml::TextureHandle texture)
 {
-    LOG(Info, "RenderShader");
+    PROFILE_GPU("RmlUi.RenderShader");
 }
 
 void FlaxRenderInterface::ReleaseShader(Rml::CompiledShaderHandle effect_handle)
 {
-    LOG(Info, "ReleaseShader");
 }
 
 Viewport FlaxRenderInterface::GetViewport()
@@ -892,9 +872,9 @@ void FlaxRenderInterface::SetViewport(int width, int height)
     CurrentViewport = Viewport(0, 0, (float)width, (float)height);
 }
 
-void FlaxRenderInterface::Begin(RenderContext* renderContext, GPUContext* gpuContext, Viewport viewport)
+void FlaxRenderInterface::Begin(RenderContext *renderContext, GPUContext *gpuContext, Viewport viewport)
 {
-    LOG(Info, "BeginFrame");
+    PROFILE_GPU_CPU("RmlUi.Begin");
     CurrentRenderContext = renderContext;
     CurrentGPUContext = gpuContext;
     CurrentViewport = viewport;
@@ -915,18 +895,18 @@ void FlaxRenderInterface::Begin(RenderContext* renderContext, GPUContext* gpuCon
 
 void FlaxRenderInterface::End()
 {
-    LOG(Info, "EndFrame");
+    PROFILE_GPU_CPU("RmlUi.End");
     render_layers.EndFrame();
     //
     // Flush generated glyphs to GPU
     FontManager::Flush();
-    ((FlaxFontEngineInterface*)Rml::GetFontEngineInterface())->FlushFontAtlases();
+    ((FlaxFontEngineInterface *)Rml::GetFontEngineInterface())->FlushFontAtlases();
 
     CurrentRenderContext = nullptr;
     CurrentGPUContext = nullptr;
 }
 
-Rml::TextureHandle FlaxRenderInterface::GetTextureHandle(GPUTexture* texture)
+Rml::TextureHandle FlaxRenderInterface::GetTextureHandle(GPUTexture *texture)
 {
     if (texture == nullptr)
         return Rml::TextureHandle();
@@ -939,7 +919,7 @@ Rml::TextureHandle FlaxRenderInterface::GetTextureHandle(GPUTexture* texture)
     return Rml::TextureHandle();
 }
 
-Rml::TextureHandle FlaxRenderInterface::RegisterTexture(GPUTexture* texture, bool isFontTexture)
+Rml::TextureHandle FlaxRenderInterface::RegisterTexture(GPUTexture *texture, bool isFontTexture)
 {
     Rml::TextureHandle handle = (Rml::TextureHandle)LoadedTextures.Count();
     LoadedTextures.Add(texture);
@@ -959,9 +939,10 @@ void FlaxRenderInterface::ReleaseResources()
     GeometryCache.ClearDelete();
 }
 
-bool FlaxRenderInterface::CreateFramebuffer(FramebufferData& out_fb, int width, int height, int samples, GPUTextureView* shared_depth_stencil_buffer, GPUTextureView* outputBuffer)
+bool FlaxRenderInterface::CreateFramebuffer(FramebufferData &out_fb, int width, int height, int samples, GPUTextureView *shared_depth_stencil_buffer, GPUTextureView *outputBuffer)
 {
-    if (!outputBuffer) {
+    if (!outputBuffer)
+    {
 
         auto texture = GPUDevice::Instance->CreateTexture();
 
@@ -971,7 +952,7 @@ bool FlaxRenderInterface::CreateFramebuffer(FramebufferData& out_fb, int width, 
         outputBuffer = texture->View();
     }
 
-    GPUTextureView* depth_stencil_buffer = nullptr;
+    GPUTextureView *depth_stencil_buffer = nullptr;
     if (shared_depth_stencil_buffer)
     {
         // Share depth/stencil buffer
@@ -988,9 +969,8 @@ bool FlaxRenderInterface::CreateFramebuffer(FramebufferData& out_fb, int width, 
     return false;
 }
 
-void FlaxRenderInterface::DestroyFameBuffer(FramebufferData& buffer)
+void FlaxRenderInterface::DestroyFameBuffer(FramebufferData &buffer)
 {
-
 }
 
 FlaxRenderInterface::RenderLayerStack::RenderLayerStack()
@@ -1003,14 +983,14 @@ FlaxRenderInterface::RenderLayerStack::~RenderLayerStack()
     DestroyFramebuffers();
 }
 
-Rml::LayerHandle FlaxRenderInterface::RenderLayerStack::PushLayer(GPUTextureView* outputBuffer)
+Rml::LayerHandle FlaxRenderInterface::RenderLayerStack::PushLayer(GPUTextureView *outputBuffer)
 {
     ASSERT(layers_size <= (int)fb_layers.size());
 
     if (layers_size == (int)fb_layers.size())
     {
         // All framebuffers should share a single stencil buffer.
-        GPUTextureView* shared_depth_stencil = (fb_layers.empty() ? (GPUTextureView*)nullptr : fb_layers.front().depth_stencil_buffer);
+        GPUTextureView *shared_depth_stencil = (fb_layers.empty() ? (GPUTextureView *)nullptr : fb_layers.front().depth_stencil_buffer);
 
         fb_layers.push_back(FlaxRenderInterface::FramebufferData{});
         FlaxRenderInterface::CreateFramebuffer(fb_layers.back(), width, height, 0, shared_depth_stencil, outputBuffer);
@@ -1026,14 +1006,14 @@ void FlaxRenderInterface::RenderLayerStack::PopLayer()
     layers_size -= 1;
 }
 
-const FlaxRenderInterface::FramebufferData& FlaxRenderInterface::RenderLayerStack::GetLayer(Rml::LayerHandle layer) const
+const FlaxRenderInterface::FramebufferData &FlaxRenderInterface::RenderLayerStack::GetLayer(Rml::LayerHandle layer) const
 {
-    // TODO: Sem vložte příkaz 
+    // TODO: Sem vložte příkaz
     ASSERT((size_t)layer < (size_t)layers_size);
     return fb_layers[layer];
 }
 
-const FlaxRenderInterface::FramebufferData& FlaxRenderInterface::RenderLayerStack::GetTopLayer() const
+const FlaxRenderInterface::FramebufferData &FlaxRenderInterface::RenderLayerStack::GetTopLayer() const
 {
     return GetLayer(GetTopLayerHandle());
 }
@@ -1049,7 +1029,7 @@ void FlaxRenderInterface::RenderLayerStack::SwapPostprocessPrimarySecondary()
     std::swap(fb_postprocess[0], fb_postprocess[1]);
 }
 
-void FlaxRenderInterface::RenderLayerStack::BeginFrame(int new_width, int new_height, GPUTextureView* outputView)
+void FlaxRenderInterface::RenderLayerStack::BeginFrame(int new_width, int new_height, GPUTextureView *outputView)
 {
     ASSERT(layers_size == 0);
 
@@ -1074,22 +1054,22 @@ void FlaxRenderInterface::RenderLayerStack::DestroyFramebuffers()
 {
     FMT_ASSERT(layers_size == 0, "Do not call this during frame rendering, that is, between BeginFrame() and EndFrame().");
 
-    for (FlaxRenderInterface::FramebufferData& fb : fb_layers)
+    for (FlaxRenderInterface::FramebufferData &fb : fb_layers)
         FlaxRenderInterface::DestroyFameBuffer(fb);
 
     fb_layers.clear();
 
-    for (FlaxRenderInterface::FramebufferData& fb : fb_postprocess)
+    for (FlaxRenderInterface::FramebufferData &fb : fb_postprocess)
         FlaxRenderInterface::DestroyFameBuffer(fb);
 }
 
-const FlaxRenderInterface::FramebufferData& FlaxRenderInterface::RenderLayerStack::EnsureFramebufferPostprocess(int index)
+const FlaxRenderInterface::FramebufferData &FlaxRenderInterface::RenderLayerStack::EnsureFramebufferPostprocess(int index)
 {
     ASSERT(index < (int)fb_postprocess.size())
-        FlaxRenderInterface::FramebufferData& fb = fb_postprocess[index];
-    
+    FlaxRenderInterface::FramebufferData &fb = fb_postprocess[index];
+
     if (!fb.framebuffer)
         FlaxRenderInterface::CreateFramebuffer(fb, width, height, 0, nullptr);
-    
+
     return fb;
 }
