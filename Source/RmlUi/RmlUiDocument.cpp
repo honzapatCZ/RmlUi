@@ -13,6 +13,7 @@
 
 #include <Engine/Core/Log.h>
 #include <Engine/Serialization/Serialization.h>
+#include <Engine/Scripting/Plugins/PluginManager.h>
 
 #include <locale>
 
@@ -116,7 +117,7 @@ Rml::ElementDocument* RmlUiDocument::GetDocument() const
 
 bool RmlUiDocument::LoadDocument()
 {
-    if (Document == nullptr)
+    if (Document == String::Empty)
         return false;
 
     Rml::Context* context = GetContext();
@@ -138,7 +139,7 @@ bool RmlUiDocument::LoadDocument()
         fontEngineInterface->LoadFontFace(fontPath, font.UseAsFallbackFont, Rml::Style::FontWeight::Auto);
     }
 
-    auto documentPath = Rml::String(StringAnsi(Document->GetPath()).Get());
+    auto documentPath = Rml::String(StringAnsi(Document).Get());
 
     // Fix decimal parsing issues by changing the locale
     std::locale oldLocale = std::locale::global(std::locale::classic());
@@ -147,7 +148,7 @@ bool RmlUiDocument::LoadDocument()
 
     if (element == nullptr)
     {
-        LOG(Error, "Failed to load RmlUiDocument with id '{0}'", Document->GetID());
+        LOG(Error, "Failed to load RmlUiDocument with id '{0}'", Document);
         return false;
     }
 
@@ -190,26 +191,43 @@ void RmlUiDocument::BeginPlay(SceneBeginData* data)
     if (AutoLoadDocument)
         LoadDocument();
     Actor::BeginPlay(data);
+    LOG(Info, "BeginPlay");
 }
 
 void RmlUiDocument::EndPlay()
 {
     UnloadDocument();
     Actor::EndPlay();
+    LOG(Info, "EndPlay");
 }
 
 void RmlUiDocument::OnEnable()
 {
     Show();
 
+    LOG(Info, "Enable");
+
     Actor::OnEnable();
+#if USE_EDITOR
+    PluginManager::GetPlugin<RmlUiEditorPlugin>()->OnReload.Bind<RmlUiDocument, &RmlUiDocument::OnReload>(this);
+#endif
 }
 
 void RmlUiDocument::OnDisable()
 {
     Hide();
+    LOG(Info, "Disable");
     Actor::OnDisable();
+#if USE_EDITOR
+    PluginManager::GetPlugin<RmlUiEditorPlugin>()->OnReload.Unbind<RmlUiDocument, &RmlUiDocument::OnReload>(this);
+#endif
 }
+#if USE_EDITOR
+void RmlUiDocument::OnReload(const String& file) {
+    LoadDocument();
+    Show();
+}
+#endif
 
 void RmlUiDocument::OnParentChanged()
 {
