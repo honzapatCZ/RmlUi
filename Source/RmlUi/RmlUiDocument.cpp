@@ -13,6 +13,7 @@
 
 #include <Engine/Core/Log.h>
 #include <Engine/Serialization/Serialization.h>
+#include <Engine/Scripting/Plugins/PluginManager.h>
 
 #include <locale>
 
@@ -94,7 +95,7 @@ Rml::Context* RmlUiDocument::GetContext() const
 
 bool RmlUiDocument::LoadDocument()
 {
-    if (Document == nullptr)
+    if (Document == String::Empty)
         return false;
 
     Rml::Context* context = GetContext();
@@ -116,7 +117,7 @@ bool RmlUiDocument::LoadDocument()
         fontEngineInterface->LoadFontFace(fontPath, font.UseAsFallbackFont, Rml::Style::FontWeight::Auto);
     }
 
-    auto documentPath = Rml::String(StringAnsi(Document->GetPath()).Get());
+    auto documentPath = Rml::String(StringAnsi(Document).Get());
 
     // Fix decimal parsing issues by changing the locale
     std::locale oldLocale = std::locale::global(std::locale::classic());
@@ -125,7 +126,7 @@ bool RmlUiDocument::LoadDocument()
 
     if (elementDocument == nullptr)
     {
-        LOG(Error, "Failed to load RmlUiDocument with id '{0}'", Document->GetID());
+        LOG(Error, "Failed to load RmlUiDocument with id '{0}'", Document);
         return false;
     }
 

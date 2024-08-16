@@ -1,10 +1,10 @@
 ﻿#pragma once
 
-#include "RmlUiDocumentAsset.h"
 #include "RmlUiFont.h"
 
 #include <Engine/Content/AssetReference.h>
 #include <Engine/Level/Actor.h>
+#include "Engine/Core/Types/String.h"
 
 namespace Rml
 {
@@ -30,7 +30,7 @@ public:
     /// <summary>
     /// The document asset.
     /// </summary>
-    API_FIELD(Attributes="EditorDisplay(\"Document Settings\")") AssetReference<RmlUiDocumentAsset> Document;
+    API_FIELD(Attributes="EditorDisplay(\"Document Settings\"),AssetReference(\".rml\"), CustomEditorAlias(\"FlaxEditor.CustomEditors.Editors.AssetRefEditor\")") String Document;
 
     /// <summary>
     /// Load document when this actor is activated.

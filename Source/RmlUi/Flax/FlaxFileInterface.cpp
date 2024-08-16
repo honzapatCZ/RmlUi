@@ -4,7 +4,9 @@
 #include <Engine/Content/Content.h>
 #include <Engine/Core/Collections/Dictionary.h>
 #include <Engine/Core/Math/Math.h>
+#include <Engine/Core/Log.h>
 #include <Engine/Core/Types/Span.h>
+#include "Engine/Platform/File.h"
 
 // We assume only .rml and .rcss files are accessed through this interface,
 // so we only support loading specific BinaryAsset files.
@@ -17,75 +19,65 @@ namespace
 
 Rml::FileHandle FlaxFileInterface::Open(const Rml::String& path)
 {
-    String assetPath = String(StringUtils::GetPathWithoutExtension(String(path.c_str()))) + ASSET_FILES_EXTENSION_WITH_DOT;
-    BinaryAsset* asset = Content::Load<BinaryAsset>(assetPath);
-    if (asset == nullptr)
+    String assetPath = String(path.c_str());
+    LOG(Info, "Opening asset: {0}", assetPath);
+    File* file = File::Open(assetPath, FileMode::OpenExisting, FileAccess::Read);
+
+    if (file == nullptr)
         return Rml::FileHandle();
 
-    if (asset->LoadChunks(ALL_ASSET_CHUNKS))
-        return Rml::FileHandle();
-
-    asset->AddReference();
-    FlaxChunk* chunk = asset->GetChunk(0);
-    Span<byte> span = Span<byte>(chunk->Data.Get(), chunk->Data.Length());
-    AssetSpans.Add(asset, span);
-    return (Rml::FileHandle)asset;
+    return (Rml::FileHandle)file;
 }
 
 void FlaxFileInterface::Close(Rml::FileHandle file)
 {
-    auto asset = (BinaryAsset*)file;
-    AssetSpans.Remove(asset);
-    asset->RemoveReference();
+    auto asset = (File*)file;
+    asset->Close();
 }
 
 size_t FlaxFileInterface::Read(void* buffer, size_t size, Rml::FileHandle file)
 {
-    auto asset = (BinaryAsset*)file;
-    Span<byte>& span = AssetSpans.At(asset);
-    const int32 readSize = Math::Min((int32)size, span.Length());
-    Platform::MemoryCopy(buffer, span.Get(), readSize);
-    span = Span<byte>(span.Get() + readSize, span.Length() - readSize);
-    return readSize;
+    auto asset = (File*)file;
+    uint32 readSize = 0;
+    asset->Read(buffer, (uint32)size, &readSize);
+    return (size_t)readSize;
 }
 
 bool FlaxFileInterface::Seek(Rml::FileHandle file, long offset, int origin)
 {
-    auto asset = (BinaryAsset*)file;
-    Span<byte>& span = AssetSpans.At(asset);
-    FlaxChunk* chunk = asset->GetChunk(0);
-    byte* start = chunk->Data.Get();
-    byte* end = start + chunk->Data.Length();
-    byte* ptr;
+    auto asset = (File*)file;
+    uint32 start = 0;
+    uint32 end = start + asset->GetSize();
+    uint32 ptr;
     if (origin == SEEK_CUR)
-        ptr = span.Get() + offset;
+        ptr = asset->GetPosition()  + offset;
     else if (origin == SEEK_SET)
         ptr = start + offset;
     else if (origin == SEEK_END)
         ptr = end + offset;
     else
-        ptr = nullptr;
+        ptr = 0;
 
     ASSERT(ptr >= start);
     ASSERT(ptr < end);
+    
+    asset->SetPosition(ptr);
 
-    span = Span<byte>(ptr, (int32)(end - ptr));
     return true;
 }
 
 size_t FlaxFileInterface::Tell(Rml::FileHandle file)
 {
-    auto asset = (BinaryAsset*)file;
-    Span<byte>& span = AssetSpans.At(asset);
-    byte* start = asset->GetChunk(0)->Data.Get();
-    size_t offset = span.Get() - start;
+    auto asset = (File*)file;
+    uint32 start = 0;
+    size_t offset = asset->GetPosition() - start;
     return offset;
 }
 
 size_t FlaxFileInterface::Length(Rml::FileHandle file)
 {
-    auto asset = (BinaryAsset*)file;
-    return asset->GetChunkSize(0);
+    auto asset = (File*)file;
+    return asset->GetSize();
 }
 
 bool FlaxFileInterface::LoadFile(const Rml::String& path, Rml::String& out_data)
