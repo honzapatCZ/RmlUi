@@ -128,7 +128,7 @@ void RmlUiEditorPlugin::SourceDirEvent(const String &path, FileSystemAction acti
     {
         return;
     }
-    if(!path.EndsWith(TEXT(".rml")))
+    if(!path.EndsWith(TEXT(".rml")) && !path.EndsWith(TEXT(".rcss")))
     {
         return;
     }

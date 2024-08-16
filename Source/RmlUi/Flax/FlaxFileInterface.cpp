@@ -82,7 +82,7 @@ size_t FlaxFileInterface::Length(Rml::FileHandle file)
 
 bool FlaxFileInterface::LoadFile(const Rml::String& path, Rml::String& out_data)
 {
-    auto asset = (BinaryAsset*)Open(path);
+    auto asset = (File*)Open(path);
     if (asset == nullptr)
         return false;
 
