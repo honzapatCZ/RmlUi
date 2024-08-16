@@ -112,5 +112,6 @@ protected:
     void OnTransformChanged() final override;
 #if USE_EDITOR
     void OnActiveInTreeChanged() override;
+    void OnReload(const String& file);
 #endif
 };

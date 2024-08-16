@@ -4,7 +4,12 @@
 #include <Engine/Input/Input.h>
 #include <Engine/Scripting/Plugins/GamePlugin.h>
 #if USE_EDITOR
+#include "Editor/Editor.h"
+#include "Editor/ProjectInfo.h"
 #include <Engine/Scripting/Plugins/EditorPlugin.h>
+#include "Engine/Platform/FileSystem.h"
+#include "Engine/Platform/FileSystemWatcher.h"
+#include <Engine/Core/Log.h>
 #endif
 
 static_assert(FLAX_1_6_OR_NEWER, "Flax 1.6 or later is required for RmlUi plugin");
@@ -19,7 +24,8 @@ struct RenderContext;
 /// <summary>
 /// The settings for RmlUi plugin.
 /// </summary>
-API_CLASS() class RmlUiSettings : public SettingsBase
+API_CLASS()
+class RmlUiSettings : public SettingsBase
 {
     API_AUTO_SERIALIZATION();
     DECLARE_SCRIPTING_TYPE_NO_SPAWN(RmlUiSettings);
@@ -29,7 +35,8 @@ API_CLASS() class RmlUiSettings : public SettingsBase
 /// <summary>
 /// RmlUi plugin.
 /// </summary>
-API_CLASS() class RMLUI_API RmlUiPlugin : public GamePlugin
+API_CLASS()
+class RMLUI_API RmlUiPlugin : public GamePlugin
 {
     DECLARE_SCRIPTING_TYPE(RmlUiPlugin);
 
@@ -65,27 +72,27 @@ public:
     /// <summary>
     /// Register RmlUiCanvas for updates and rendering.
     /// </summary>
-    static void RegisterCanvas(RmlUiCanvas* canvas);
+    static void RegisterCanvas(RmlUiCanvas *canvas);
 
     /// <summary>
     /// Unregister RmlUiCanvas for updates and rendering.
     /// </summary>
-    static void UnregisterCanvas(RmlUiCanvas* canvas);
+    static void UnregisterCanvas(RmlUiCanvas *canvas);
 
     /// <summary>
     /// Returns the currently focused canvas.
     /// </summary>
-    static RmlUiCanvas* GetFocusedCanvas();
+    static RmlUiCanvas *GetFocusedCanvas();
 
     /// <summary>
     /// Enables focus on the specified canvas for receiving input.
     /// </summary>
-    static void FocusCanvas(RmlUiCanvas* canvas);
+    static void FocusCanvas(RmlUiCanvas *canvas);
 
     /// <summary>
     /// Disables focus on the specified canvas for receiving input.
     /// </summary>
-    static void DefocusCanvas(RmlUiCanvas* canvas);
+    static void DefocusCanvas(RmlUiCanvas *canvas);
 
 private:
     static void RegisterEvents();
@@ -94,38 +101,39 @@ private:
     static void OnCharInput(Char c);
     static void OnKeyDown(KeyboardKeys key);
     static void OnKeyUp(KeyboardKeys key);
-    static void OnMouseDown(const Float2& mousePosition, MouseButton button);
-    static void OnMouseUp(const Float2& mousePosition, MouseButton button);
-    static void OnMouseDoubleClick(const Float2& mousePosition, MouseButton button);
-    static void OnMouseWheel(const Float2& mousePosition, float delta);
-    static void OnMouseMove(const Float2& mousePosition);
+    static void OnMouseDown(const Float2 &mousePosition, MouseButton button);
+    static void OnMouseUp(const Float2 &mousePosition, MouseButton button);
+    static void OnMouseDoubleClick(const Float2 &mousePosition, MouseButton button);
+    static void OnMouseWheel(const Float2 &mousePosition, float delta);
+    static void OnMouseMove(const Float2 &mousePosition);
     static void OnMouseLeave();
-    static void OnTouchDown(const Float2& pointerPosition, int32 pointerIndex);
-    static void OnTouchMove(const Float2& pointerPosition, int32 pointerIndex);
-    static void OnTouchUp(const Float2& pointerPosition, int32 pointerIndex);
+    static void OnTouchDown(const Float2 &pointerPosition, int32 pointerIndex);
+    static void OnTouchMove(const Float2 &pointerPosition, int32 pointerIndex);
+    static void OnTouchUp(const Float2 &pointerPosition, int32 pointerIndex);
 #if USE_EDITOR
     static void OnCharInputGameWindow(Char c);
     static void OnKeyDownGameWindow(KeyboardKeys key);
     static void OnKeyUpGameWindow(KeyboardKeys key);
-    static void OnMouseDownGameWindow(const Float2& mousePosition, MouseButton button);
-    static void OnMouseUpGameWindow(const Float2& mousePosition, MouseButton button);
-    static void OnMouseDoubleClickGameWindow(const Float2& mousePosition, MouseButton button);
-    static void OnMouseWheelGameWindow(const Float2& mousePosition, float delta);
-    static void OnMouseMoveGameWindow(const Float2& mousePosition);
+    static void OnMouseDownGameWindow(const Float2 &mousePosition, MouseButton button);
+    static void OnMouseUpGameWindow(const Float2 &mousePosition, MouseButton button);
+    static void OnMouseDoubleClickGameWindow(const Float2 &mousePosition, MouseButton button);
+    static void OnMouseWheelGameWindow(const Float2 &mousePosition, float delta);
+    static void OnMouseMoveGameWindow(const Float2 &mousePosition);
     static void OnMouseLeaveGameWindow();
-    static void OnTouchDownGameWindow(const Float2& pointerPosition, int32 pointerIndex);
-    static void OnTouchMoveGameWindow(const Float2& pointerPosition, int32 pointerIndex);
-    static void OnTouchUpGameWindow(const Float2& pointerPosition, int32 pointerIndex);
+    static void OnTouchDownGameWindow(const Float2 &pointerPosition, int32 pointerIndex);
+    static void OnTouchMoveGameWindow(const Float2 &pointerPosition, int32 pointerIndex);
+    static void OnTouchUpGameWindow(const Float2 &pointerPosition, int32 pointerIndex);
 #endif
     static void Update();
-    static void Render(GPUContext* gpuContext, RenderContext& renderContext);
+    static void Render(GPUContext *gpuContext, RenderContext &renderContext);
 };
 
 #if USE_EDITOR
 /// <summary>
 /// RmlUi plugin (Editor).
 /// </summary>
-API_CLASS() class RMLUI_API RmlUiEditorPlugin : public EditorPlugin
+API_CLASS()
+class RMLUI_API RmlUiEditorPlugin : public EditorPlugin
 {
     DECLARE_SCRIPTING_TYPE(RmlUiEditorPlugin);
 
@@ -136,5 +144,10 @@ public:
 
     /// <inheritdoc />
     void Deinitialize() override;
+
+    Delegate < const String&> OnReload;
+private:
+    Array<FileSystemWatcher *> SourceFoldersWatchers;
+    void SourceDirEvent(const String &path, FileSystemAction action);
 };
 #endif

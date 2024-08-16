@@ -152,26 +152,43 @@ void RmlUiDocument::BeginPlay(SceneBeginData* data)
     if (AutoLoadDocument)
         LoadDocument();
     Actor::BeginPlay(data);
+    LOG(Info, "BeginPlay");
 }
 
 void RmlUiDocument::EndPlay()
 {
     UnloadDocument();
     Actor::EndPlay();
+    LOG(Info, "EndPlay");
 }
 
 void RmlUiDocument::OnEnable()
 {
     Show();
 
+    LOG(Info, "Enable");
+
     Actor::OnEnable();
+#if USE_EDITOR
+    PluginManager::GetPlugin<RmlUiEditorPlugin>()->OnReload.Bind<RmlUiDocument, &RmlUiDocument::OnReload>(this);
+#endif
 }
 
 void RmlUiDocument::OnDisable()
 {
     Hide();
+    LOG(Info, "Disable");
     Actor::OnDisable();
+#if USE_EDITOR
+    PluginManager::GetPlugin<RmlUiEditorPlugin>()->OnReload.Unbind<RmlUiDocument, &RmlUiDocument::OnReload>(this);
+#endif
 }
+#if USE_EDITOR
+void RmlUiDocument::OnReload(const String& file) {
+    LoadDocument();
+    Show();
+}
+#endif
 
 void RmlUiDocument::OnParentChanged()
 {

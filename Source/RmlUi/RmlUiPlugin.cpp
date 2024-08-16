@@ -6,7 +6,6 @@
 #undef NormaliseAngle
 
 #include "RmlUiCanvas.h"
-#include "RmlUiImport.h"
 #include "RmlUiHelpers.h"
 #include "Flax/FlaxSystemInterface.h"
 #include "Flax/FlaxFileInterface.h"
@@ -32,12 +31,12 @@
 namespace
 {
     bool RmlUiInitialized = false;
-    Array<RmlUiCanvas*> Canvases;
-    RmlUiCanvas* FocusedCanvas = nullptr;
-    FlaxSystemInterface* FlaxSystemInterfaceInstance = nullptr;
-    FlaxRenderInterface* FlaxRenderInterfaceInstance = nullptr;
-    FlaxFontEngineInterface* FlaxFontEngineInterfaceInstance = nullptr;
-    FlaxFileInterface* FlaxFileInterfaceInstance = nullptr;
+    Array<RmlUiCanvas *> Canvases;
+    RmlUiCanvas *FocusedCanvas = nullptr;
+    FlaxSystemInterface *FlaxSystemInterfaceInstance = nullptr;
+    FlaxRenderInterface *FlaxRenderInterfaceInstance = nullptr;
+    FlaxFontEngineInterface *FlaxFontEngineInterfaceInstance = nullptr;
+    FlaxFileInterface *FlaxFileInterfaceInstance = nullptr;
 }
 
 IMPLEMENT_GAME_SETTINGS_GETTER(RmlUiSettings, "RmlUi");
@@ -52,12 +51,12 @@ PluginDescription GetPluginDescription(bool isEditorPlugin)
     description.Description = TEXT("RmlUi is a user interface library based on HTML and CSS standards.");
     description.Author = TEXT("Michael R. P. Ragazzon");
     description.AuthorUrl = TEXT("https://github.com/mikke89/RmlUi");
-	description.HomepageUrl = TEXT("https://github.com/mikke89/RmlUi");
+    description.HomepageUrl = TEXT("https://github.com/mikke89/RmlUi");
     description.RepositoryUrl = TEXT("https://github.com/GoaLitiuM/RmlUi");
     return description;
 }
 
-RmlUiPlugin::RmlUiPlugin(const SpawnParams& params)
+RmlUiPlugin::RmlUiPlugin(const SpawnParams &params)
     : GamePlugin(params)
 {
     _description = GetPluginDescription(false);
@@ -98,7 +97,7 @@ bool RmlUiPlugin::IsInitialized()
 }
 
 #if USE_EDITOR
-RmlUiEditorPlugin::RmlUiEditorPlugin(const SpawnParams& params)
+RmlUiEditorPlugin::RmlUiEditorPlugin(const SpawnParams &params)
     : EditorPlugin(params)
 {
     _description = GetPluginDescription(true);
@@ -106,16 +105,43 @@ RmlUiEditorPlugin::RmlUiEditorPlugin(const SpawnParams& params)
 
 void RmlUiEditorPlugin::Initialize()
 {
-    RegisterRmlUiImporters();
-
     RmlUiPlugin::InitializeRmlUi();
     EditorPlugin::Initialize();
+
+    auto project = Editor::Project;
+    HashSet<ProjectInfo *> projects;
+    project->GetAllProjects(projects);
+    for (auto e : projects)
+    {
+        ProjectInfo *project = e.Item;
+        if (project->Name == TEXT("Flax"))
+            continue;
+        LOG(Info, "Registering RML watcher: Source file changed: {0}", project->ProjectFolderPath / TEXT("Content"));
+        auto watcher = New<FileSystemWatcher>(project->ProjectFolderPath / TEXT("Content"), true);
+        watcher->OnEvent.Bind<RmlUiEditorPlugin, &RmlUiEditorPlugin::SourceDirEvent>(this);
+        SourceFoldersWatchers.Add(watcher);
+    }
+}
+void RmlUiEditorPlugin::SourceDirEvent(const String &path, FileSystemAction action)
+{
+    if (action == FileSystemAction::Create)
+    {
+        return;
+    }
+    if(!path.EndsWith(TEXT(".rml")))
+    {
+        return;
+    }
+    LOG(Info, "RmlUi: Source file changed: {0} {1}", path, action == FileSystemAction::Modify ? TEXT("Modify") : TEXT("Other"));
+    this->OnReload(path);
 }
 
 void RmlUiEditorPlugin::Deinitialize()
 {
     RmlUiPlugin::DeinitializeRmlUi();
     EditorPlugin::Deinitialize();
+
+    SourceFoldersWatchers.ClearDelete();
 }
 #endif
 
@@ -167,29 +193,29 @@ void RmlUiPlugin::DeinitializeRmlUi()
     Canvases.Clear();
 }
 
-void RmlUiPlugin::RegisterCanvas(RmlUiCanvas* canvas)
+void RmlUiPlugin::RegisterCanvas(RmlUiCanvas *canvas)
 {
     Canvases.Add(canvas);
 }
 
-void RmlUiPlugin::UnregisterCanvas(RmlUiCanvas* canvas)
+void RmlUiPlugin::UnregisterCanvas(RmlUiCanvas *canvas)
 {
     Canvases.Remove(canvas);
     if (FocusedCanvas == canvas)
         DefocusCanvas(canvas);
 }
 
-RmlUiCanvas* RmlUiPlugin::GetFocusedCanvas()
+RmlUiCanvas *RmlUiPlugin::GetFocusedCanvas()
 {
     return FocusedCanvas;
 }
 
-void RmlUiPlugin::FocusCanvas(RmlUiCanvas* canvas)
+void RmlUiPlugin::FocusCanvas(RmlUiCanvas *canvas)
 {
     FocusedCanvas = canvas;
 }
 
-void RmlUiPlugin::DefocusCanvas(RmlUiCanvas* canvas)
+void RmlUiPlugin::DefocusCanvas(RmlUiCanvas *canvas)
 {
     if (FocusedCanvas == canvas)
         FocusedCanvas = nullptr;
@@ -331,7 +357,7 @@ void RmlUiPlugin::OnKeyUp(KeyboardKeys key)
         FocusedCanvas->OnKeyUp(key);
 }
 
-void RmlUiPlugin::OnMouseDown(const Float2& mousePosition, MouseButton button)
+void RmlUiPlugin::OnMouseDown(const Float2 &mousePosition, MouseButton button)
 {
     PROFILE_CPU();
 
@@ -353,7 +379,7 @@ void RmlUiPlugin::OnMouseDown(const Float2& mousePosition, MouseButton button)
         FocusedCanvas->OnMouseDown(realPosition, button);
 }
 
-void RmlUiPlugin::OnMouseUp(const Float2& mousePosition, MouseButton button)
+void RmlUiPlugin::OnMouseUp(const Float2 &mousePosition, MouseButton button)
 {
     PROFILE_CPU();
 
@@ -375,7 +401,7 @@ void RmlUiPlugin::OnMouseUp(const Float2& mousePosition, MouseButton button)
         FocusedCanvas->OnMouseUp(realPosition, button);
 }
 
-void RmlUiPlugin::OnMouseDoubleClick(const Float2& mousePosition, MouseButton button)
+void RmlUiPlugin::OnMouseDoubleClick(const Float2 &mousePosition, MouseButton button)
 {
     PROFILE_CPU();
 
@@ -393,11 +419,11 @@ void RmlUiPlugin::OnMouseDoubleClick(const Float2& mousePosition, MouseButton bu
     Float2 realPosition = mousePosition;
 #endif
 
-    //if (focusedCanvas != nullptr)
-    //    focusedCanvas->OnMouseDown(realPosition, button);
+    // if (focusedCanvas != nullptr)
+    //     focusedCanvas->OnMouseDown(realPosition, button);
 }
 
-void RmlUiPlugin::OnMouseWheel(const Float2& mousePosition, float delta)
+void RmlUiPlugin::OnMouseWheel(const Float2 &mousePosition, float delta)
 {
     PROFILE_CPU();
 
@@ -419,7 +445,7 @@ void RmlUiPlugin::OnMouseWheel(const Float2& mousePosition, float delta)
         FocusedCanvas->OnMouseWheel(realPosition, -delta);
 }
 
-void RmlUiPlugin::OnMouseMove(const Float2& mousePosition)
+void RmlUiPlugin::OnMouseMove(const Float2 &mousePosition)
 {
     PROFILE_CPU();
 
@@ -454,7 +480,7 @@ void RmlUiPlugin::OnMouseLeave()
         FocusedCanvas->OnMouseLeave();
 }
 
-void RmlUiPlugin::OnTouchDown(const Float2& pointerPosition, int32 pointerIndex)
+void RmlUiPlugin::OnTouchDown(const Float2 &pointerPosition, int32 pointerIndex)
 {
     PROFILE_CPU();
 
@@ -476,7 +502,7 @@ void RmlUiPlugin::OnTouchDown(const Float2& pointerPosition, int32 pointerIndex)
         FocusedCanvas->OnTouchDown(realPosition, pointerIndex);
 }
 
-void RmlUiPlugin::OnTouchMove(const Float2& pointerPosition, int32 pointerIndex)
+void RmlUiPlugin::OnTouchMove(const Float2 &pointerPosition, int32 pointerIndex)
 {
     PROFILE_CPU();
 
@@ -498,7 +524,7 @@ void RmlUiPlugin::OnTouchMove(const Float2& pointerPosition, int32 pointerIndex)
         FocusedCanvas->OnTouchMove(realPosition, pointerIndex);
 }
 
-void RmlUiPlugin::OnTouchUp(const Float2& pointerPosition, int32 pointerIndex)
+void RmlUiPlugin::OnTouchUp(const Float2 &pointerPosition, int32 pointerIndex)
 {
     PROFILE_CPU();
 
@@ -554,7 +580,7 @@ void RmlUiPlugin::OnKeyUpGameWindow(KeyboardKeys key)
         FocusedCanvas->OnKeyUp(key);
 }
 
-void RmlUiPlugin::OnMouseDownGameWindow(const Float2& mousePosition, MouseButton button)
+void RmlUiPlugin::OnMouseDownGameWindow(const Float2 &mousePosition, MouseButton button)
 {
     PROFILE_CPU();
 
@@ -568,7 +594,7 @@ void RmlUiPlugin::OnMouseDownGameWindow(const Float2& mousePosition, MouseButton
         FocusedCanvas->OnMouseDown(realPosition, button);
 }
 
-void RmlUiPlugin::OnMouseUpGameWindow(const Float2& mousePosition, MouseButton button)
+void RmlUiPlugin::OnMouseUpGameWindow(const Float2 &mousePosition, MouseButton button)
 {
     PROFILE_CPU();
 
@@ -582,7 +608,7 @@ void RmlUiPlugin::OnMouseUpGameWindow(const Float2& mousePosition, MouseButton b
         FocusedCanvas->OnMouseUp(realPosition, button);
 }
 
-void RmlUiPlugin::OnMouseDoubleClickGameWindow(const Float2& mousePosition, MouseButton button)
+void RmlUiPlugin::OnMouseDoubleClickGameWindow(const Float2 &mousePosition, MouseButton button)
 {
     PROFILE_CPU();
 
@@ -590,13 +616,13 @@ void RmlUiPlugin::OnMouseDoubleClickGameWindow(const Float2& mousePosition, Mous
         return;
 
     // FIXME: Offset by the height of the game window title bar
-    //Float2 realPosition = pointerPosition - Float2(0, 25);
+    // Float2 realPosition = pointerPosition - Float2(0, 25);
 
-    //if (focusedCanvas != nullptr)
-    //    focusedCanvas->OnMouseDown(pointerPosition, button);
+    // if (focusedCanvas != nullptr)
+    //     focusedCanvas->OnMouseDown(pointerPosition, button);
 }
 
-void RmlUiPlugin::OnMouseWheelGameWindow(const Float2& mousePosition, float delta)
+void RmlUiPlugin::OnMouseWheelGameWindow(const Float2 &mousePosition, float delta)
 {
     PROFILE_CPU();
 
@@ -607,13 +633,13 @@ void RmlUiPlugin::OnMouseWheelGameWindow(const Float2& mousePosition, float delt
         FocusedCanvas->OnMouseWheel(mousePosition, -delta);
 }
 
-void RmlUiPlugin::OnMouseMoveGameWindow(const Float2& mousePosition)
+void RmlUiPlugin::OnMouseMoveGameWindow(const Float2 &mousePosition)
 {
     PROFILE_CPU();
 
-    //auto gameWindow = GetEditorGameWindow();
-    //if (gameWindow == nullptr || !gameWindow->IsFocused())
-    //    return;
+    // auto gameWindow = GetEditorGameWindow();
+    // if (gameWindow == nullptr || !gameWindow->IsFocused())
+    //     return;
 
     if (!HasEditorGameViewportFocus())
         return;
@@ -636,7 +662,7 @@ void RmlUiPlugin::OnMouseLeaveGameWindow()
         FocusedCanvas->OnMouseLeave();
 }
 
-void RmlUiPlugin::OnTouchDownGameWindow(const Float2& pointerPosition, int32 pointerIndex)
+void RmlUiPlugin::OnTouchDownGameWindow(const Float2 &pointerPosition, int32 pointerIndex)
 {
     PROFILE_CPU();
 
@@ -650,7 +676,7 @@ void RmlUiPlugin::OnTouchDownGameWindow(const Float2& pointerPosition, int32 poi
         FocusedCanvas->OnTouchDown(realPosition, pointerIndex);
 }
 
-void RmlUiPlugin::OnTouchMoveGameWindow(const Float2& pointerPosition, int32 pointerIndex)
+void RmlUiPlugin::OnTouchMoveGameWindow(const Float2 &pointerPosition, int32 pointerIndex)
 {
     PROFILE_CPU();
 
@@ -664,7 +690,7 @@ void RmlUiPlugin::OnTouchMoveGameWindow(const Float2& pointerPosition, int32 poi
         FocusedCanvas->OnTouchMove(pointerPosition, pointerIndex);
 }
 
-void RmlUiPlugin::OnTouchUpGameWindow(const Float2& pointerPosition, int32 pointerIndex)
+void RmlUiPlugin::OnTouchUpGameWindow(const Float2 &pointerPosition, int32 pointerIndex)
 {
     PROFILE_CPU();
 
@@ -693,7 +719,7 @@ void RmlUiPlugin::Update()
     std::locale::global(oldLocale);
 }
 
-void RmlUiPlugin::Render(GPUContext* gpuContext, RenderContext& renderContext)
+void RmlUiPlugin::Render(GPUContext *gpuContext, RenderContext &renderContext)
 {
     PROFILE_GPU_CPU_NAMED("RmlUi.Render");
 
@@ -703,7 +729,7 @@ void RmlUiPlugin::Render(GPUContext* gpuContext, RenderContext& renderContext)
     {
         PROFILE_GPU_CPU_NAMED("RmlUiCanvas");
 
-        Rml::Context* context = canvas->GetContext();
+        Rml::Context *context = canvas->GetContext();
 
         FlaxRenderInterfaceInstance->Begin(&renderContext, gpuContext, renderContext.Task->GetViewport());
         Viewport viewport = FlaxRenderInterfaceInstance->GetViewport();
