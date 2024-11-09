@@ -1,0 +1,14 @@
+{
+	"Name": "RmlUiModule",
+	"Version": "0.1",
+	"MinEngineVersion": "1.6",
+	"Company": "",
+	"Copyright": "",
+	"GameTarget": "RmlUiModuleTarget",
+	"EditorTarget": "RmlUiModuleEditorTarget",
+	"References": [
+		{
+			"Name": "$(EnginePath)/Flax.flaxproj"
+		}
+	]
+}
