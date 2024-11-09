@@ -757,8 +757,13 @@ void FlaxRenderInterface::SetScissor(Rectangle scissor)
 
 void FlaxRenderInterface::EnableClipMask(bool enable)
 {
-    PROFILE_GPU("RmlUi.EnableClipMask");
-    CurrentGPUContext->SetStencilRef(enable ? 0 : 1);
+    if (enable) {
+        PROFILE_GPU("RmlUi.EnableClipMask(100)");
+        CurrentGPUContext->SetStencilRef(100);
+    }else {
+        PROFILE_GPU("RmlUi.EnableClipMask(0)");
+        CurrentGPUContext->SetStencilRef(0);
+    }
 }
 
 void FlaxRenderInterface::RenderToClipMask(Rml::ClipMaskOperation mask_operation, Rml::CompiledGeometryHandle geometry, Rml::Vector2f translation)
@@ -784,7 +789,7 @@ void FlaxRenderInterface::RenderToClipMask(Rml::ClipMaskOperation mask_operation
         case Rml::ClipMaskOperation::SetInverse:
         {
             PROFILE_GPU("RmlUi.SetStencilRef(1)");
-            CurrentGPUContext->SetStencilRef(1);
+            CurrentGPUContext->SetStencilRef(100);
             break;
         }
         }
@@ -807,7 +812,7 @@ void FlaxRenderInterface::RenderToClipMask(Rml::ClipMaskOperation mask_operation
     case Rml::ClipMaskOperation::Set:
     {
         PROFILE_GPU("RmlUi.SetStencilRef(1)");
-        CurrentGPUContext->SetStencilRef(1);
+        CurrentGPUContext->SetStencilRef(100);
         break;
     }
     case Rml::ClipMaskOperation::SetInverse:
@@ -844,8 +849,6 @@ void FlaxRenderInterface::RenderToClipMask(Rml::ClipMaskOperation mask_operation
     CurrentGPUContext->FlushState();
 
     RenderGeometryWithPipeline(compiledGeometry, translation, nullptr, pipeline);
-
-    CurrentGPUContext->SetStencilRef(0);
 }
 
 #pragma region Texture
@@ -2055,7 +2058,7 @@ void FlaxRenderInterface::DestroyFameBuffer(FramebufferData &buffer)
     SAFE_DELETE_GPU_RESOURCE(buffer.framebuffer);
 }
 
-void FlaxRenderInterface::SetupRenderTarget(FramebufferData data)
+void FlaxRenderInterface::SetupRenderTarget(FramebufferData data, bool allowScissor)
 {
     CurrentGPUContext->ResetSR();
     if(data.depth_stencil_buffer != nullptr)
@@ -2063,7 +2066,7 @@ void FlaxRenderInterface::SetupRenderTarget(FramebufferData data)
     else
         CurrentGPUContext->SetRenderTarget(data.framebuffer);
 
-    if (UseScissor)
+    if (UseScissor && allowScissor)
     {
         CurrentGPUContext->SetViewport(CurrentViewport);
         CurrentGPUContext->SetScissor(CurrentScissor);

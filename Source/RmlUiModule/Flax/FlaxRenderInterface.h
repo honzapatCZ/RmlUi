@@ -111,7 +111,7 @@ private:
     static bool CreateFramebuffer(FramebufferData& outBuffer, int width, int height, MSAALevel samples, FramebufferAttachment attachment, GPUTextureView* shared_depth_stencil_buffer, GPUTextureView* outputBuffer = nullptr);
     static void DestroyFameBuffer(FramebufferData& buffer);
 
-    void SetupRenderTarget(FramebufferData data);
+    void SetupRenderTarget(FramebufferData data, bool allowScissor = true);
 
     class RenderLayerStack {
     public:
