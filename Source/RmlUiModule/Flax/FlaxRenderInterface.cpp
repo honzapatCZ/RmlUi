@@ -108,7 +108,12 @@ struct CompiledFilter
 public:
     CompiledFilter()
         : reserved(true),
-          type(FilterType::Invalid)
+        type(FilterType::Invalid),
+        blend_factor(1),
+        sigma(0),
+        offset(Float2(0.0f)),
+        color(Color().Pink),
+        color_matrix(Matrix().Identity)
     //, isFont(false)
     {
     }
@@ -378,10 +383,10 @@ bool FlaxRenderInterface::InitShaders()
     BlendingMode PremultipliedBlend = {
             false, // AlphaToCoverageEnable
             true, // BlendEnable
-            BlendingMode::Blend::One, // SrcBlend
+            BlendingMode::Blend::BlendFactor, // SrcBlend
             BlendingMode::Blend::InvSrcAlpha, // DestBlend
             BlendingMode::Operation::Add, // BlendOp
-            BlendingMode::Blend::One, // SrcBlendAlpha
+            BlendingMode::Blend::BlendFactor, // SrcBlendAlpha
             BlendingMode::Blend::InvSrcAlpha, // DestBlendAlpha
             BlendingMode::Operation::Add, // BlendOpAlpha
             BlendingMode::ColorWrite::All, // RenderTargetWriteMask
@@ -822,7 +827,7 @@ void FlaxRenderInterface::RenderToClipMask(Rml::ClipMaskOperation mask_operation
         }
         }
 
-        CurrentGPUContext->SetBlendFactor(Float4(0, 0, 0, 0));
+        CurrentGPUContext->SetBlendFactor(Float4(0.0f));
 
         CurrentGPUContext->SetState(SetStencilFSTPipeline);
 
@@ -873,12 +878,13 @@ void FlaxRenderInterface::RenderToClipMask(Rml::ClipMaskOperation mask_operation
     if (compiledGeometry == nullptr)
         return;
 
-    CurrentGPUContext->SetBlendFactor(Float4(0,0,0,0));
+    CurrentGPUContext->SetBlendFactor(Float4(0.0f));
     CurrentGPUContext->FlushState();
 
     RenderGeometryWithPipeline(compiledGeometry, translation, nullptr, pipeline);
 
     EnableClipMask(UseStencil);
+    CurrentGPUContext->SetBlendFactor(Float4(1));
 }
 
 #pragma region Texture
@@ -1274,12 +1280,12 @@ Rml::CompiledFilterHandle FlaxRenderInterface::CompileFilter(const Rml::String& 
         const float rev_value = 1.f - value;
         const Rml::Vector3f gray = value * Rml::Vector3f(0.2126f, 0.7152f, 0.0722f);
         // clang-format off
-        filter->color_matrix = *(const Matrix*)Rml::Matrix4f::FromRows(
-            { gray.x + rev_value, gray.y,             gray.z,             0.f },
-            { gray.x,             gray.y + rev_value, gray.z,             0.f },
-            { gray.x,             gray.y,             gray.z + rev_value, 0.f },
-            { 0.f,                0.f,                0.f,                1.f }
-        ).data();
+        filter->color_matrix = Matrix(
+            gray.x + rev_value, gray.y,             gray.z,             0.f,
+            gray.x,             gray.y + rev_value, gray.z,             0.f,
+            gray.x,             gray.y,             gray.z + rev_value, 0.f,
+            0.f,                0.f,                0.f,                1.f
+        );
         // clang-format on
     }
     else if (name == "sepia")
@@ -1291,12 +1297,12 @@ Rml::CompiledFilterHandle FlaxRenderInterface::CompileFilter(const Rml::String& 
         const Rml::Vector3f g_mix = value * Rml::Vector3f(0.349f, 0.686f, 0.168f);
         const Rml::Vector3f b_mix = value * Rml::Vector3f(0.272f, 0.534f, 0.131f);
         // clang-format off
-        filter->color_matrix = *(const Matrix*)Rml::Matrix4f::FromRows(
-            { r_mix.x + rev_value, r_mix.y,             r_mix.z,             0.f },
-            { g_mix.x,             g_mix.y + rev_value, g_mix.z,             0.f },
-            { b_mix.x,             b_mix.y,             b_mix.z + rev_value, 0.f },
-            { 0.f,                 0.f,                 0.f,                 1.f }
-        ).data();
+        filter->color_matrix = Matrix(
+            r_mix.x + rev_value, r_mix.y,             r_mix.z,             0.f,
+            g_mix.x,             g_mix.y + rev_value, g_mix.z,             0.f,
+            b_mix.x,             b_mix.y,             b_mix.z + rev_value, 0.f,
+            0.f,                 0.f,                 0.f,                 1.f
+        );
         // clang-format on
     }
     else if (name == "hue-rotate")
@@ -1307,12 +1313,12 @@ Rml::CompiledFilterHandle FlaxRenderInterface::CompileFilter(const Rml::String& 
         const float s = Rml::Math::Sin(value);
         const float c = Rml::Math::Cos(value);
         // clang-format off
-        filter->color_matrix = *(const Matrix*)Rml::Matrix4f::FromRows(
-            { 0.213f + 0.787f * c - 0.213f * s,  0.715f - 0.715f * c - 0.715f * s,  0.072f - 0.072f * c + 0.928f * s,  0.f },
-            { 0.213f - 0.213f * c + 0.143f * s,  0.715f + 0.285f * c + 0.140f * s,  0.072f - 0.072f * c - 0.283f * s,  0.f },
-            { 0.213f - 0.213f * c - 0.787f * s,  0.715f - 0.715f * c + 0.715f * s,  0.072f + 0.928f * c + 0.072f * s,  0.f },
-            { 0.f,                               0.f,                               0.f,                               1.f }
-        ).data();
+        filter->color_matrix = Matrix(
+            0.213f + 0.787f * c - 0.213f * s,  0.715f - 0.715f * c - 0.715f * s,  0.072f - 0.072f * c + 0.928f * s,  0.f,
+            0.213f - 0.213f * c + 0.143f * s,  0.715f + 0.285f * c + 0.140f * s,  0.072f - 0.072f * c - 0.283f * s,  0.f,
+            0.213f - 0.213f * c - 0.787f * s,  0.715f - 0.715f * c + 0.715f * s,  0.072f + 0.928f * c + 0.072f * s,  0.f,
+            0.f,                               0.f,                               0.f,                               1.f
+        );
         // clang-format on
     }
     else if (name == "saturate")
@@ -1320,12 +1326,12 @@ Rml::CompiledFilterHandle FlaxRenderInterface::CompileFilter(const Rml::String& 
         filter->type = FilterType::ColorMatrix;
         const float value = Rml::Get(parameters, "value", 1.0f);
         // clang-format off
-        filter->color_matrix = *(const Matrix*)Rml::Matrix4f::FromRows(
-            { 0.213f + 0.787f * value,  0.715f - 0.715f * value,  0.072f - 0.072f * value,  0.f },
-            { 0.213f - 0.213f * value,  0.715f + 0.285f * value,  0.072f - 0.072f * value,  0.f },
-            { 0.213f - 0.213f * value,  0.715f - 0.715f * value,  0.072f + 0.928f * value,  0.f },
-            { 0.f,                      0.f,                      0.f,                      1.f }
-        ).data();
+        filter->color_matrix = Matrix(
+            0.213f + 0.787f * value,  0.715f - 0.715f * value,  0.072f - 0.072f * value,  0.f,
+            0.213f - 0.213f * value,  0.715f + 0.285f * value,  0.072f - 0.072f * value,  0.f,
+            0.213f - 0.213f * value,  0.715f - 0.715f * value,  0.072f + 0.928f * value,  0.f,
+            0.f,                      0.f,                      0.f,                      1.f
+        );
         // clang-format on
     }
 
@@ -1377,6 +1383,7 @@ void FlaxRenderInterface::RenderFilters(Rml::Span<const Rml::CompiledFilterHandl
 
             GPUConstantBuffer* constantBuffer = FiltersShader->GetShader()->GetCB(0);
 
+            CurrentGPUContext->SetBlendFactor(Float4(filter->blend_factor));
             // Update constant buffer data
             FilterCustomData data;
 
@@ -1393,6 +1400,8 @@ void FlaxRenderInterface::RenderFilters(Rml::Span<const Rml::CompiledFilterHandl
 
             CurrentGPUContext->SetState(pipeline);
             CurrentGPUContext->DrawFullscreenTriangle();
+
+            CurrentGPUContext->SetBlendFactor(Float4(1));
 
             render_layers.SwapPostprocessPrimarySecondary();
         }
@@ -1446,6 +1455,9 @@ void FlaxRenderInterface::RenderFilters(Rml::Span<const Rml::CompiledFilterHandl
 
             render_layers.SwapPostprocessPrimarySecondary();*/
 
+            CurrentGPUContext->ResetRenderTarget();
+            CurrentGPUContext->ResetCB();
+            CurrentGPUContext->ResetSR();
 
             CurrentGPUContext->SetState(DropShadowPipeline);
             const auto primary = render_layers.GetPostprocessPrimary();
@@ -1462,9 +1474,9 @@ void FlaxRenderInterface::RenderFilters(Rml::Span<const Rml::CompiledFilterHandl
 
             // State and bindings
             CurrentGPUContext->BindSR(0, primary.framebuffer);
+            CurrentGPUContext->BindCB(0, constantBuffer);
             CurrentGPUContext->SetRenderTarget(secondary.framebuffer);
 
-            CurrentGPUContext->BindCB(0, constantBuffer);
 
             const Rectangle window_flipped = CurrentScissor;
             data._texCoordMin = (window_flipped.GetUpperLeft() + Float2(0.5)) / Float2(primary.width, primary.height);
@@ -1514,20 +1526,24 @@ void FlaxRenderInterface::RenderFilters(Rml::Span<const Rml::CompiledFilterHandl
             render_layers.SwapPostprocessPrimarySecondary();
             glEnable(GL_BLEND);
             */
+            CurrentGPUContext->ResetRenderTarget();
+            CurrentGPUContext->ResetCB();
+            CurrentGPUContext->ResetSR();
             CurrentGPUContext->SetState(ColorMatrixPipeline);
 
             GPUConstantBuffer* constantBuffer = FiltersShader->GetShader()->GetCB(0);
 
             // Update constant buffer data
             FilterCustomData data;
-            data._color_matrix = filter->color_matrix;
+            //data._color_matrix = filter->color_matrix;
+            Matrix::Transpose(filter->color_matrix, data._color_matrix);
+            CurrentGPUContext->BindCB(0, constantBuffer);
             CurrentGPUContext->UpdateCB(constantBuffer, &data);
 
             const auto source = render_layers.GetPostprocessPrimary();
             const auto destination = render_layers.GetPostprocessSecondary();
 
             CurrentGPUContext->SetRenderTarget(destination.framebuffer);
-            CurrentGPUContext->BindCB(0, constantBuffer);
             CurrentGPUContext->BindSR(0, source.framebuffer);
 
             CurrentGPUContext->DrawFullscreenTriangle();
@@ -1558,6 +1574,9 @@ void FlaxRenderInterface::RenderFilters(Rml::Span<const Rml::CompiledFilterHandl
             render_layers.SwapPostprocessPrimarySecondary();
             glEnable(GL_BLEND);
             */
+            CurrentGPUContext->ResetRenderTarget();
+            CurrentGPUContext->ResetCB();
+            CurrentGPUContext->ResetSR();
             CurrentGPUContext->SetState(MaskImagePipeline);
 
             GPUConstantBuffer* constantBuffer = FiltersShader->GetShader()->GetCB(0);

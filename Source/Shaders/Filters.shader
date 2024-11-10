@@ -55,7 +55,7 @@ META_PS(true, FEATURE_LEVEL_ES2)
 float4 PS_ColorMatrix(VSOUT input) : SV_Target0
 {
     float4 texColor = _tex.Sample(SamplerLinearWrap , input.TexCoord * UVScale+(Offset*float2(1,-1)));
-    float3 transformedColor = mul((float3x4)_color_matrix, texColor.rgb);
+    float3 transformedColor = mul(_color_matrix, texColor).xyz;
     return float4(transformedColor, texColor.a);
 }
 META_PS(true, FEATURE_LEVEL_ES2)
