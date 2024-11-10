@@ -139,7 +139,7 @@ private:
         void EndFrame();
 
     private:
-        void DestroyFramebuffers(bool force = false);
+        void DestroyFramebuffers();
         const FramebufferData& EnsureFramebufferPostprocess(int index);
 
         int width = 0, height = 0;

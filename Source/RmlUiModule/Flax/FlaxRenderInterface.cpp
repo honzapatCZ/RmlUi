@@ -37,7 +37,15 @@
 #include <Engine/Render2D/FontManager.h>
 #include <Engine/Graphics/RenderTargetPool.h>
 
+//MSAA
 static constexpr int NUM_MSAA_SAMPLES = 2;
+
+//Blur
+#define BLUR_SIZE 7
+#define BLUR_NUM_WEIGHTS ((BLUR_SIZE + 1) / 2)
+
+//Gradients
+#define MAX_NUM_STOPS 16
 
 #pragma region Types
 struct BasicVertex
@@ -85,8 +93,7 @@ public:
     // bool isFont;
 };
 
-#define BLUR_SIZE 5 // Define as needed
-#define BLUR_NUM_WEIGHTS 3 // Define as needed
+
 enum class FilterType
 {
     Invalid = 0,
@@ -133,7 +140,6 @@ public:
     // ColorMatrix
     Matrix color_matrix;
 };
-#define MAX_NUM_STOPS 16
 enum class CompiledShaderType
 {
     Invalid = 0,
@@ -238,6 +244,7 @@ namespace
     Matrix CurrentTransform;
     Matrix ViewProjection;
     bool UseScissor = false;
+    bool UseStencil = false;
 
     AssetReference<Shader> BasicShader;
     AssetReference<Shader> GUIShader;
@@ -343,6 +350,21 @@ void FlaxRenderInterface::InvalidateShaders(Asset* obj)
     SAFE_DELETE_GPU_RESOURCE(FontPipeline);
     SAFE_DELETE_GPU_RESOURCE(ImagePipeline);
     SAFE_DELETE_GPU_RESOURCE(ColorPipeline);
+
+    SAFE_DELETE_GPU_RESOURCE(SetStencilPipeline);
+    SAFE_DELETE_GPU_RESOURCE(SetStencilFSTPipeline);
+    SAFE_DELETE_GPU_RESOURCE(IntersectStencilPipeline);
+
+    SAFE_DELETE_GPU_RESOURCE(BlitPipeline);
+
+    SAFE_DELETE_GPU_RESOURCE(PassThroughPipeline);
+    SAFE_DELETE_GPU_RESOURCE(PassThroughPipelineBlend);
+    SAFE_DELETE_GPU_RESOURCE(BlurPipeline);
+    SAFE_DELETE_GPU_RESOURCE(ColorMatrixPipeline);
+    SAFE_DELETE_GPU_RESOURCE(DropShadowPipeline);
+    SAFE_DELETE_GPU_RESOURCE(MaskImagePipeline);
+
+    SAFE_DELETE_GPU_RESOURCE(GradientPipeline);
 }
 bool FlaxRenderInterface::InitShaders()
 {
@@ -369,11 +391,12 @@ bool FlaxRenderInterface::InitShaders()
     if (FontPipeline == nullptr || ImagePipeline == nullptr || ColorPipeline == nullptr)
     {
         GPUPipelineState::Description desc = GPUPipelineState::Description::DefaultFullscreenTriangle;
+        desc.VS = BasicShader->GetShader()->GetVS("VS");
+        desc.CullMode = CullMode::TwoSided;
+
         desc.DepthEnable = true;
         desc.DepthWriteEnable = false;
         desc.DepthClipEnable = false;
-        desc.VS = BasicShader->GetShader()->GetVS("VS");
-        desc.CullMode = CullMode::TwoSided;
         desc.DepthFunc = ComparisonFunc::Always;
         desc.StencilEnable = true;
         desc.StencilFunc = ComparisonFunc::LessEqual;
@@ -469,11 +492,15 @@ bool FlaxRenderInterface::InitShaders()
     {
         bool useDepth = false;
         GPUPipelineState::Description desc = GPUPipelineState::Description::DefaultFullscreenTriangle;
-        desc.DepthEnable = desc.DepthWriteEnable = useDepth;
-        desc.DepthWriteEnable = false;
-        desc.DepthClipEnable = false;
         desc.VS = FiltersShader->GetShader()->GetVS("VS");
         desc.CullMode = CullMode::TwoSided;
+
+        desc.DepthEnable = true;
+        desc.DepthWriteEnable = false;
+        desc.DepthClipEnable = false;
+        desc.DepthFunc = ComparisonFunc::Always;
+        desc.StencilEnable = true;
+        desc.StencilFunc = ComparisonFunc::LessEqual;
 
 
         desc.BlendMode = PremultipliedBlend;
@@ -757,6 +784,7 @@ void FlaxRenderInterface::SetScissor(Rectangle scissor)
 
 void FlaxRenderInterface::EnableClipMask(bool enable)
 {
+    UseStencil = enable;
     if (enable) {
         PROFILE_GPU("RmlUi.EnableClipMask(100)");
         CurrentGPUContext->SetStencilRef(100);
@@ -849,6 +877,8 @@ void FlaxRenderInterface::RenderToClipMask(Rml::ClipMaskOperation mask_operation
     CurrentGPUContext->FlushState();
 
     RenderGeometryWithPipeline(compiledGeometry, translation, nullptr, pipeline);
+
+    EnableClipMask(UseStencil);
 }
 
 #pragma region Texture
@@ -1004,8 +1034,11 @@ void FlaxRenderInterface::RenderBlur(float sigma, const FramebufferData& source_
     const Float2 uv_scaling = { (source_destination.width % 2 == 1) ? (1.f - 1.f / float(source_destination.width)) : 1.f,
         (source_destination.height % 2 == 1) ? (1.f - 1.f / float(source_destination.height)) : 1.f };
 
+    pass_level += 1;
+
     for (int i = 0; i < pass_level; i++)
     {
+        PROFILE_GPU("RmlUi.RenderBlur.DownScale");
         const auto TopLeft = (scissor.GetUpperLeft() + Float2(1)) / 2.f;
         scissor = Rectangle(TopLeft, scissor.GetBottomRight() - TopLeft);
         scissor = Rectangle(TopLeft, Math::Max(scissor.GetBottomRight() / 2.0f, scissor.GetUpperLeft()) - TopLeft);
@@ -1027,7 +1060,6 @@ void FlaxRenderInterface::RenderBlur(float sigma, const FramebufferData& source_
         CurrentGPUContext->FlushState();
 
         CurrentGPUContext->DrawFullscreenTriangle();
-        CurrentGPUContext->FlushState();
         //DrawFullscreenQuad({}, uv_scaling);
     }
 
@@ -1623,7 +1655,8 @@ void FlaxRenderInterface::CompositeLayers(Rml::LayerHandle source, Rml::LayerHan
     CurrentGPUContext->UpdateCB(pConstantBuffer, &pData);
 
     CurrentGPUContext->ResetRenderTarget();
-    CurrentGPUContext->SetRenderTarget(render_layers.GetLayer(destination).framebuffer);
+    //CurrentGPUContext->SetRenderTarget(render_layers.GetLayer(destination).framebuffer);
+    SetupRenderTarget(render_layers.GetLayer(destination));
     CurrentGPUContext->BindSR(0, render_layers.GetPostprocessPrimary().framebuffer);
     CurrentGPUContext->FlushState();
 
@@ -1712,6 +1745,8 @@ Rml::TextureHandle FlaxRenderInterface::SaveLayerAsTexture()
 Rml::CompiledFilterHandle FlaxRenderInterface::SaveLayerAsMaskImage()
 {
     PROFILE_GPU("RmlUi.SaveLayerAsMaskImage");
+
+    BlitTexturePostProcessPrimary(render_layers.GetTopLayer());
 
     GPUPipelineState* pipeline = PassThroughPipeline;
     const auto source = render_layers.GetPostprocessPrimary();
@@ -2008,6 +2043,12 @@ void FlaxRenderInterface::ReleaseResources()
     LoadedTextureAssets.Clear();
     FontTextures.Clear();
     LoadedTextures.Clear();
+    GPUTexture** data = AllocatedTextures.Get();
+    for (int32 i = 0; i < AllocatedTextures.Count(); i++)
+    {
+        if (data[i])
+            data[i]->ReleaseGPU();
+    }
     AllocatedTextures.ClearDelete();
     GeometryCache.ClearDelete();
 }
@@ -2020,6 +2061,8 @@ bool FlaxRenderInterface::CreateFramebuffer(FramebufferData &out_fb, int width, 
 
         if (texture->Init(GPUTextureDescription::New2D(width, height, PixelFormat::B8G8R8A8_UNorm, GPUTextureFlags::ShaderResource | GPUTextureFlags::RenderTarget, 1, 1, MSAALevel::None)))
             return false;
+
+        AllocatedTextures.Add(texture);
 
         outputBuffer = texture->View();
     }
@@ -2038,6 +2081,8 @@ bool FlaxRenderInterface::CreateFramebuffer(FramebufferData &out_fb, int width, 
             if (texture->Init(GPUTextureDescription::New2D(width, height, PixelFormat::D24_UNorm_S8_UInt, GPUTextureFlags::ShaderResource | GPUTextureFlags::DepthStencil)))
                 return false;
 
+            AllocatedTextures.Add(texture);
+
             depth_stencil_buffer = texture->View();
         }
     }
@@ -2054,12 +2099,12 @@ bool FlaxRenderInterface::CreateFramebuffer(FramebufferData &out_fb, int width, 
 
 void FlaxRenderInterface::DestroyFameBuffer(FramebufferData &buffer)
 {
-    SAFE_DELETE_GPU_RESOURCE(buffer.depth_stencil_buffer);
-    SAFE_DELETE_GPU_RESOURCE(buffer.framebuffer);
+
 }
 
 void FlaxRenderInterface::SetupRenderTarget(FramebufferData data, bool allowScissor)
 {
+    CurrentGPUContext->ResetRenderTarget();
     CurrentGPUContext->ResetSR();
     if(data.depth_stencil_buffer != nullptr)
         CurrentGPUContext->SetRenderTarget(data.depth_stencil_buffer, data.framebuffer);
@@ -2082,7 +2127,7 @@ FlaxRenderInterface::RenderLayerStack::RenderLayerStack()
 
 FlaxRenderInterface::RenderLayerStack::~RenderLayerStack()
 {
-    DestroyFramebuffers(true);
+    DestroyFramebuffers();
 }
 
 Rml::LayerHandle FlaxRenderInterface::RenderLayerStack::PushLayer(GPUTextureView *outputBuffer)
@@ -2154,9 +2199,9 @@ void FlaxRenderInterface::RenderLayerStack::EndFrame()
     PopLayer();
 }
 
-void FlaxRenderInterface::RenderLayerStack::DestroyFramebuffers(bool force)
+void FlaxRenderInterface::RenderLayerStack::DestroyFramebuffers()
 {
-    FMT_ASSERT(layers_size == 0 || force, "Do not call this during frame rendering, that is, between BeginFrame() and EndFrame().");
+    FMT_ASSERT(layers_size == 0, "Do not call this during frame rendering, that is, between BeginFrame() and EndFrame().");
 
     for (FlaxRenderInterface::FramebufferData &fb : fb_layers)
         FlaxRenderInterface::DestroyFameBuffer(fb);
