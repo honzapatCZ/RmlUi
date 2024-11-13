@@ -51,7 +51,7 @@ static constexpr int NUM_MSAA_SAMPLES = 2;
 struct BasicVertex
 {
     Float2 Position;
-    Half2 TexCoord;
+    Float2 TexCoord;
     Color Color;
     Float2 ClipOrigin;
     RotatedRectangle ClipMask;
@@ -670,7 +670,7 @@ void FlaxRenderInterface::CompileGeometry(CompiledGeometry *compiledGeometry, co
     {
         BasicVertex vb0;
         vb0.Position = (Float2)vertices[i].position;
-        vb0.TexCoord = Half2((Float2)vertices[i].tex_coord);
+        vb0.TexCoord = (Float2)vertices[i].tex_coord;
         vb0.Color = Color(Color32(vertices[i].colour.red, vertices[i].colour.green, vertices[i].colour.blue, vertices[i].colour.alpha));
         vb0.ClipOrigin = Float2::Zero;
         vb0.ClipMask = defaultMask;

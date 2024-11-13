@@ -21,14 +21,14 @@ Texture2D sourceTexture : register(t0);
 
 META_VS(true, FEATURE_LEVEL_ES2)
 META_VS_IN_ELEMENT(POSITION, 0, R32G32_FLOAT,       0, ALIGN, PER_VERTEX, 0, true)
-META_VS_IN_ELEMENT(TEXCOORD, 0, R16G16_FLOAT,       0, ALIGN, PER_VERTEX, 0, true)
+META_VS_IN_ELEMENT(TEXCOORD, 0, R32G32_FLOAT,       0, ALIGN, PER_VERTEX, 0, true)
 PS_INPUT VS(VS_INPUT input)
 {
     PS_INPUT output;
        
 
     // Map the vertex position from [-1, 1] space to [0, 1] UV space
-    float2 uvPos = float2((input.pos.x + 1.0f) * 0.5f, 1-(input.pos.y + 1.0f) * 0.5f);
+    float2 uvPos = input.uv;
 
     // Map UV position to the target rectangle in UV space
     output.pos = float4(input.pos, 0, 1);
