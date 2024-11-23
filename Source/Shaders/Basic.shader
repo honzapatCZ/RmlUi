@@ -22,7 +22,7 @@ META_VS(true, FEATURE_LEVEL_ES2)
 META_VS_IN_ELEMENT(POSITION, 0, R32G32_FLOAT,       0, ALIGN, PER_VERTEX, 0, true)
 META_VS_IN_ELEMENT(TEXCOORD, 0, R32G32_FLOAT,       0, ALIGN, PER_VERTEX, 0, true)
 META_VS_IN_ELEMENT(COLOR,    0, R32G32B32A32_FLOAT, 0, ALIGN, PER_VERTEX, 0, true)
-META_VS_IN_ELEMENT(TEXCOORD, 1, R32G32_FLOAT,       0, 0,     PER_VERTEX, 0, true)
+META_VS_IN_ELEMENT(TEXCOORD, 1, R32G32_FLOAT,       0, ALIGN, PER_VERTEX, 0, true)
 META_VS_IN_ELEMENT(TEXCOORD, 2, R32G32B32A32_FLOAT, 0, ALIGN, PER_VERTEX, 0, true)
 VS2PS VS(BasicVertex input)
 {
@@ -41,7 +41,7 @@ VS2PS VS(BasicVertex input)
 META_PS(true, FEATURE_LEVEL_ES2)
 float4 PS_Image(VS2PS input) : SV_Target0
 {
-    PerformClipping(input);
+    //PerformClipping(input);//currently broken
 
     return Image.Sample(SamplerLinearClamp, input.TexCoord) * input.Color;
 }
@@ -49,7 +49,7 @@ float4 PS_Image(VS2PS input) : SV_Target0
 META_PS(true, FEATURE_LEVEL_ES2)
 float4 PS_Color(VS2PS input) : SV_Target0
 {
-    //PerformClipping(input);
+    //PerformClipping(input);//currently broken
 
 	float4 color = input.Color;
     return color;
@@ -58,7 +58,7 @@ float4 PS_Color(VS2PS input) : SV_Target0
 META_PS(true, FEATURE_LEVEL_ES2)
 float4 PS_Font(VS2PS input) : SV_Target0
 {
-    PerformClipping(input);
+    //PerformClipping(input);//currently broken
 
     float4 color = input.Color;
     color.a *= Image.Sample(SamplerLinearClamp, input.TexCoord).r;

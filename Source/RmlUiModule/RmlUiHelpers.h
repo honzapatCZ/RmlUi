@@ -9,6 +9,8 @@
 #include <ThirdParty/RmlUi/Core/Types.h>
 #include <ThirdParty/RmlUi/Core/Unit.h>
 
+#include "ThirdParty/RmlUi/Core/Factory.h"
+
 // Conflicts with both Flax and RmlUi Math.h
 #undef RadiansToDegrees
 #undef DegreesToRadians

@@ -64,6 +64,11 @@ RmlUiPlugin::RmlUiPlugin(const SpawnParams &params)
 
 void RmlUiPlugin::Initialize()
 {
+#if USE_EDITOR
+    Rml::Factory::ClearStyleSheetCache();
+    Rml::Factory::ClearTemplateCache();
+#endif
+
 #if !USE_EDITOR
     InitializeRmlUi();
 #endif
@@ -76,6 +81,11 @@ void RmlUiPlugin::Deinitialize()
     DeinitializeRmlUi();
 #endif
     GamePlugin::Deinitialize();
+
+#if USE_EDITOR
+    Rml::Factory::ClearStyleSheetCache();
+    Rml::Factory::ClearTemplateCache();
+#endif
 }
 
 #if USE_EDITOR
@@ -133,6 +143,8 @@ void RmlUiEditorPlugin::SourceDirEvent(const String &path, FileSystemAction acti
         return;
     }
     LOG(Info, "RmlUi: Source file changed: {0} {1}", path, action == FileSystemAction::Modify ? TEXT("Modify") : TEXT("Other"));
+    Rml::Factory::ClearStyleSheetCache();
+    Rml::Factory::ClearTemplateCache();
     this->OnReload(path);
 }
 

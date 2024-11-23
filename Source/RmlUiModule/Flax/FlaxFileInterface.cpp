@@ -32,6 +32,7 @@ Rml::FileHandle FlaxFileInterface::Open(const Rml::String& path)
 void FlaxFileInterface::Close(Rml::FileHandle file)
 {
     auto asset = (File*)file;
+    LOG(Info, "Closing asset");
     asset->Close();
 }
 

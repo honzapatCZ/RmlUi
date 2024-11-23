@@ -54,7 +54,7 @@ struct BasicVertex
     Float2 TexCoord;
     Color Color;
     Float2 ClipOrigin;
-    RotatedRectangle ClipMask;
+    Float4 ClipExtents;
 };
 
 struct CompiledGeometry
@@ -672,8 +672,8 @@ void FlaxRenderInterface::CompileGeometry(CompiledGeometry *compiledGeometry, co
         vb0.Position = (Float2)vertices[i].position;
         vb0.TexCoord = (Float2)vertices[i].tex_coord;
         vb0.Color = Color(Color32(vertices[i].colour.red, vertices[i].colour.green, vertices[i].colour.blue, vertices[i].colour.alpha));
-        vb0.ClipOrigin = Float2::Zero;
-        vb0.ClipMask = defaultMask;
+        vb0.ClipOrigin = defaultMask.TopLeft;
+        vb0.ClipExtents = Float4(defaultMask.ExtentX, defaultMask.ExtentY);
 
         compiledGeometry->vertexBuffer.Write(vb0);
     }
