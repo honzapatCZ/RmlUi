@@ -84,7 +84,7 @@ Rml::String GetAtlasTextureNameHandle(int index)
 FlaxFontEngineInterface::FlaxFontEngineInterface()
 {
     // Value of 0 is invalid handle, reserve it
-    FontEffects.Add({0, {0}});
+    FontEffects.Add({0});
 }
 
 void FlaxFontEngineInterface::ReleaseFontResources()
